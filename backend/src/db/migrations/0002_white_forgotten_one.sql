@@ -1,0 +1,1 @@
+ALTER TABLE "race_sessions" ADD COLUMN "config_json" jsonb;

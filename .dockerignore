@@ -1,0 +1,13 @@
+# Excluir de la imagen: el node_modules local (con symlinks de workspaces) y
+# todo lo que no hace falta para correr (secretos, datos, builds, git).
+node_modules
+**/node_modules
+frontend/dist
+.git
+.env
+.env.*
+backend/data
+backend/data/sessions
+*.log
+Thumbs.db
+.DS_Store

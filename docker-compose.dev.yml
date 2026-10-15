@@ -1,0 +1,22 @@
+# Development PostgreSQL (Fase 1). Data persists in a named volume.
+#   docker compose -f docker-compose.dev.yml up -d
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: endurance-postgres-dev
+    environment:
+      POSTGRES_USER: endurance
+      POSTGRES_PASSWORD: endurance
+      POSTGRES_DB: endurance_dev
+    ports:
+      - "5432:5432"
+    volumes:
+      - endurance_pg_dev:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U endurance -d endurance_dev"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  endurance_pg_dev:

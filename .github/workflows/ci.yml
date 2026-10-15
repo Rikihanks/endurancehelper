@@ -1,0 +1,27 @@
+# Continuous integration: install, generate DB migrations, run backend tests,
+# build the frontend. Runs on every push / PR.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - name: Backend tests
+        run: npm test --workspace backend
+      - name: Frontend build
+        run: npm run build --workspace frontend
+      - name: Migrations up to date
+        run: npx drizzle-kit generate --config backend/drizzle.config.js
+      - name: Legacy importer + seed scripts parse
+        run: node --check backend/scripts/migrate-legacy-data.mjs && node --check backend/scripts/seed-license.mjs

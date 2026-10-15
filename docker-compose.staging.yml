@@ -1,0 +1,51 @@
+# STAGING / TEST stack — runs side by side with prod on the same VPS.
+#   docker compose -f docker-compose.staging.yml --env-file .env.staging up -d --build
+#
+# Differences vs prod: host port 8081, its own database/volume and APP_URL, and
+# NODE_ENV=staging so dev-only endpoints (e.g. /api/dev/license) remain enabled
+# for testing. Prod stays untouched on 8080.
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-endurance}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB:-endurance_staging}
+    volumes:
+      - endurance_pg_staging:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-endurance} -d ${POSTGRES_DB:-endurance_staging}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  app:
+    build:
+      context: .
+      args:
+        VITE_GOOGLE_CLIENT_ID: ${VITE_GOOGLE_CLIENT_ID:-}
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      NODE_ENV: staging
+      PORT: 8080
+      APP_URL: ${APP_URL:?set APP_URL}
+      DATABASE_URL: ${DATABASE_URL:?set DATABASE_URL}
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
+      JWT_SECRET: ${JWT_SECRET:?set JWT_SECRET}
+      COOKIE_SAME_SITE: ${COOKIE_SAME_SITE:-lax}
+      STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY:-}
+      STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET:-}
+      STRIPE_MONTHLY_PRICE_ID: ${STRIPE_MONTHLY_PRICE_ID:-}
+      STRIPE_ANNUAL_PRICE_ID: ${STRIPE_ANNUAL_PRICE_ID:-}
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:8081}
+      LOG_LEVEL: ${LOG_LEVEL:-debug}
+    ports:
+      - "${APP_PORT:-8081}:8080"
+
+volumes:
+  endurance_pg_staging:

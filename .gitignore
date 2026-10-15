@@ -1,0 +1,33 @@
+# dependencies
+node_modules/
+
+# frontend build
+frontend/dist/
+
+# backend persisted runtime data
+backend/data/*.json
+backend/data/sessions/
+!backend/data/.gitkeep
+
+# logs
+*.log
+
+# env files (secrets) — keep the .example templates tracked
+.env
+.env.*
+!.env.example
+!.env.production.example
+!.env.staging.example
+
+# os / editor
+.DS_Store
+Thumbs.db
+.vscode/
+
+# temp / scratch files
+a.txt
+test-output.txt
+backend/output.txt
+backend/gen-hash.mjs
+plan-inlapbox-*.md
+*.log
