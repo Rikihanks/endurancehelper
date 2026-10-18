@@ -24,11 +24,14 @@ export default function LiveTimingView({ adapter, snapshot, activeTrackId, onGoT
   const [error, setError] = useState(null);
   const [busy, setBusy] = useState(null);
   const [tick, setTick] = useState(0);
+  const [maxSpeed, setMaxSpeed] = useState(0);
 
   const engineRef = useRef(null);
   const recordingRef = useRef(false);
   const recordsRef = useRef([]);
   const lastEventRef = useRef(null);
+  const dashRef = useRef(null);
+  const maxSpeedRef = useRef(0);
 
   useEffect(() => {
     let cancelled = false;
@@ -58,6 +61,7 @@ export default function LiveTimingView({ adapter, snapshot, activeTrackId, onGoT
       if (!engine) return;
       const event = engine.push(record);
       if (event) lastEventRef.current = event;
+      if (record.speed > maxSpeedRef.current) maxSpeedRef.current = record.speed;
       recordsRef.current.push(record);
     });
     return () => unsubscribe();
@@ -67,6 +71,7 @@ export default function LiveTimingView({ adapter, snapshot, activeTrackId, onGoT
   useEffect(() => {
     const timer = setInterval(() => {
       if (engineRef.current) setUi(engineRef.current.getSnapshot());
+      setMaxSpeed(maxSpeedRef.current);
       setRecordCount(recordsRef.current.length);
       setTick((t) => t + 1);
     }, 200);
@@ -89,9 +94,21 @@ export default function LiveTimingView({ adapter, snapshot, activeTrackId, onGoT
       if (!receiving) await adapter.startReceiving();
       recordsRef.current = [];
       lastEventRef.current = null;
+      maxSpeedRef.current = 0;
+      setMaxSpeed(0);
       engineRef.current = new LiveTiming(track);
       recordingRef.current = true;
       setRecording(true);
+      // Jump straight to the times dashboard: no manual scrolling while driving.
+      setTimeout(() => {
+        if (dashRef.current) {
+          try {
+            dashRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          } catch (_) {
+            dashRef.current.scrollIntoView();
+          }
+        }
+      }, 60);
       if (!track || !track.startFinish) {
         setMessage(
           'Grabando sin circuito: la sesión se guardará completa, pero no se cronometran vueltas. ' +
@@ -190,6 +207,8 @@ export default function LiveTimingView({ adapter, snapshot, activeTrackId, onGoT
             onClick={() => {
               engineRef.current = new LiveTiming(track);
               lastEventRef.current = null;
+              maxSpeedRef.current = 0;
+              setMaxSpeed(0);
               setUi(engineRef.current.getSnapshot());
             }}
           >
@@ -223,18 +242,21 @@ export default function LiveTimingView({ adapter, snapshot, activeTrackId, onGoT
         {error && <p className="rb-alert rb-alert-error">{error}</p>}
       </section>
 
-      <section className="rb-card">
+      <section className="rb-card rb-dashboard" ref={dashRef}>
         <h2>Tiempos</h2>
         <div className="rb-laptimer">
           <div className="rb-lap-big">
             <span>Vuelta actual</span>
             <b>{formatLapTime(ui?.currentLapElapsedS || 0)}</b>
+            <span className="rb-lap-count">
+              {ui?.lapNumber ? `Vuelta ${ui.lapNumber}` : 'Cruza la meta para empezar'}
+            </span>
+            <span className="rb-lap-speed">
+              {latest ? `${latest.speed.toFixed(1)} km/h` : '— km/h'}
+              <em> · máx {maxSpeed.toFixed(0)}</em>
+            </span>
           </div>
           <div className="rb-lap-side">
-            <div className="rb-metric">
-              <span>Vuelta</span>
-              <b>{ui?.lapNumber || '—'}</b>
-            </div>
             <div className="rb-metric">
               <span>Última</span>
               <b>{ui?.lastLapS != null ? formatLapTime(ui.lastLapS) : '—'}</b>
@@ -251,33 +273,6 @@ export default function LiveTimingView({ adapter, snapshot, activeTrackId, onGoT
               <span>Vueltas</span>
               <b>{ui?.laps || 0}</b>
             </div>
-            <div className="rb-metric">
-              <span>V. máx</span>
-              <b>{latest ? `${latest.speed.toFixed(0)}` : '—'}</b>
-            </div>
-          </div>
-        </div>
-
-        <div className="rb-metrics" style={{ marginTop: 12 }}>
-          <div className="rb-metric">
-            <span>Velocidad</span>
-            <b>{latest ? `${latest.speed.toFixed(1)} km/h` : '—'}</b>
-          </div>
-          <div className="rb-metric">
-            <span>G lateral</span>
-            <b>{latest ? `${(latest.gForceY / 1000).toFixed(2)} g` : '—'}</b>
-          </div>
-          <div className="rb-metric">
-            <span>G longitudinal</span>
-            <b>{latest ? `${(latest.gForceX / 1000).toFixed(2)} g` : '—'}</b>
-          </div>
-          <div className="rb-metric">
-            <span>Satélites</span>
-            <b>{latest ? latest.numSVs : '—'}</b>
-          </div>
-          <div className="rb-metric">
-            <span>Batería</span>
-            <b>{latest ? `${latest.batteryLevel} %` : '—'}</b>
           </div>
         </div>
         <span className="rb-muted" data-tick={tick} />

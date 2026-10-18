@@ -738,3 +738,49 @@ code {
   .rb-header { flex-direction: column; align-items: stretch; }
   .rb-back { align-self: flex-start; }
 }
+/* ===== Live dashboard: big timer + 4 tiles, no clutter ===== */
+
+.rb-dashboard { scroll-margin-top: calc(54px + env(safe-area-inset-top, 0px)); }
+
+.rb-lap-big { gap: 2px; }
+.rb-lap-count {
+  display: block;
+  margin-top: 8px;
+  color: var(--muted);
+  font-size: 12px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+.rb-lap-speed {
+  display: block;
+  margin-top: 6px;
+  font-family: var(--font-mono);
+  font-size: 20px;
+  font-variant-numeric: tabular-nums;
+  color: var(--text);
+}
+.rb-lap-speed em { font-style: normal; color: var(--muted); font-size: 14px; }
+.rb-lap-side { grid-template-columns: repeat(2, 1fr); }
+
+/* Landscape phones: wide but short, so shrink everything and use 4 columns */
+@media (max-height: 540px) {
+  .rb-page { padding-top: calc(8px + env(safe-area-inset-top, 0px)); }
+  .rb-header { margin-bottom: 10px; }
+  .rb-header h1 { font-size: 20px; }
+  .rb-sub { display: none; }
+  .rb-card { padding: 12px; margin-bottom: 12px; }
+  .rb-card h2 { font-size: 17px; }
+  .rb-card h3 { margin: 12px 0 6px; }
+  .rb-lap-big { padding: 10px 8px; }
+  .rb-lap-big b { font-size: clamp(36px, 9vw, 60px); }
+  .rb-lap-speed { font-size: 16px; }
+  .rb-lap-count { margin-top: 4px; font-size: 11px; }
+  .rb-lap-side,
+  .rb-metrics { grid-template-columns: repeat(4, 1fr); }
+  .rb-metric { padding: 7px 9px; }
+  .rb-metric b { font-size: 15px; }
+  .rb-tab { min-height: 40px; padding: 8px 12px; }
+  .rb-actionbar { padding: 8px 0 calc(8px + env(safe-area-inset-bottom, 0px)); }
+  .rb-actionbar .rb-btn { min-height: 46px; }
+  .rb-dashboard { scroll-margin-top: calc(44px + env(safe-area-inset-top, 0px)); }
+}
