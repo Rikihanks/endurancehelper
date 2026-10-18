@@ -3,11 +3,15 @@ import { RaceBoxAdapter } from '../../services/devices/racebox/RaceBoxAdapter.js
 import RaceBoxStatus from './RaceBoxStatus.jsx';
 import RaceBoxDataPanel from './RaceBoxDataPanel.jsx';
 import RaceBoxSessionsView from './sessions/RaceBoxSessionsView.jsx';
+import LiveTimingView from './live/LiveTimingView.jsx';
+import TracksView from './tracks/TracksView.jsx';
 import './racebox-poc.css';
 
-// Isolated diagnostic screen. It never touches race state, the backend or the
-// strategy engine. Reachable at /racebox (path) or #racebox (hash) so it also
-// works inside the Capacitor container.
+const ACTIVE_TRACK_KEY = 'inlap-active-track';
+
+// Isolated diagnostic + telemetry screen. It never touches race state, the
+// backend or the strategy engine. Reachable at /racebox (path) or #racebox
+// (hash) so it also works inside the Capacitor container.
 export default function RaceBoxPocPage() {
   const [adapter] = useState(() => new RaceBoxAdapter());
   const snapshot = useSyncExternalStore(
@@ -18,6 +22,23 @@ export default function RaceBoxPocPage() {
   const [now, setNow] = useState(() => Date.now());
   const [busy, setBusy] = useState(null);
   const [tab, setTab] = useState('live');
+  const [activeTrackId, setActiveTrackId] = useState(() => {
+    try {
+      return window.localStorage.getItem(ACTIVE_TRACK_KEY) || null;
+    } catch (_) {
+      return null;
+    }
+  });
+
+  const selectTrack = useCallback((id) => {
+    setActiveTrackId(id);
+    try {
+      if (id) window.localStorage.setItem(ACTIVE_TRACK_KEY, id);
+      else window.localStorage.removeItem(ACTIVE_TRACK_KEY);
+    } catch (_) {
+      /* ignore */
+    }
+  }, []);
 
   // Initialize BLE on mount and release everything on unmount. The adapter
   // tolerates StrictMode's mount/unmount/remount cycle.
@@ -43,6 +64,13 @@ export default function RaceBoxPocPage() {
     }
   }
 
+  const tabs = [
+    { id: 'live', label: 'En vivo' },
+    { id: 'timing', label: 'Cronometraje' },
+    { id: 'tracks', label: 'Circuitos' },
+    { id: 'sessions', label: 'Sesiones' },
+  ];
+
   return (
     <div className="rb-page">
       <header className="rb-header">
@@ -57,23 +85,19 @@ export default function RaceBoxPocPage() {
       </header>
 
       <nav className="rb-tabs">
-        <button
-          type="button"
-          className={`rb-tab${tab === 'live' ? ' rb-tab-active' : ''}`}
-          onClick={() => setTab('live')}
-        >
-          En vivo
-        </button>
-        <button
-          type="button"
-          className={`rb-tab${tab === 'sessions' ? ' rb-tab-active' : ''}`}
-          onClick={() => setTab('sessions')}
-        >
-          Sesiones
-        </button>
+        {tabs.map((t) => (
+          <button
+            key={t.id}
+            type="button"
+            className={`rb-tab${tab === t.id ? ' rb-tab-active' : ''}`}
+            onClick={() => setTab(t.id)}
+          >
+            {t.label}
+          </button>
+        ))}
       </nav>
 
-      {tab === 'live' ? (
+      {tab === 'live' && (
         <>
           <RaceBoxStatus
             snapshot={snapshot}
@@ -86,16 +110,34 @@ export default function RaceBoxPocPage() {
             onStartReceiving={() => run('startRx', () => adapter.startReceiving())}
             onStopReceiving={() => run('stopRx', () => adapter.stopReceiving())}
           />
-
           <RaceBoxDataPanel snapshot={snapshot} now={now} />
         </>
-      ) : (
-        <RaceBoxSessionsView adapter={adapter} snapshot={snapshot} />
       )}
 
+      {tab === 'timing' && (
+        <LiveTimingView
+          adapter={adapter}
+          snapshot={snapshot}
+          activeTrackId={activeTrackId}
+          onGoToTracks={() => setTab('tracks')}
+        />
+      )}
+
+      {tab === 'tracks' && (
+        <TracksView
+          adapter={adapter}
+          snapshot={snapshot}
+          activeTrackId={activeTrackId}
+          onSelectTrack={selectTrack}
+        />
+      )}
+
+      {tab === 'sessions' && <RaceBoxSessionsView adapter={adapter} snapshot={snapshot} />}
+
       <footer className="rb-footer">
-        Protocolo basado en RaceBox BLE rev 8 (cliente de referencia lgnap/RaceBoxMicroBleClient).
-        Ver <code>docs/racebox-protocol-research.md</code> para fuentes y límites.
+        Protocolo basado en RaceBox BLE rev 9 (cliente de referencia lgnap/RaceBoxMicroBleClient).
+        Ver <code>docs/racebox-protocol-research.md</code> y{' '}
+        <code>docs/racebox-racechrono-replication.md</code> para fuentes y límites.
       </footer>
     </div>
   );

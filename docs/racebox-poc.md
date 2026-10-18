@@ -206,7 +206,34 @@ confirmación). Borra también es compatible con la app oficial, así que sincro
 | Sin datos tras «Iniciar recepción» | La RaceBox no está transmitiendo o se perdió la conexión; revisa el estado y vuelve a conectar. |
 | `cap sync` avisa de CocoaPods en iOS | Estás fuera de macOS; `pod install` y el build iOS requieren macOS. |
 
-## 10. Pasos pendientes para una integración de producción
+## 10. Guía rápida para probar en el circuito
+
+La pantalla `/racebox` tiene cuatro pestañas: **En vivo** (BLE + GATT), **Cronometraje**
+(lap timer), **Circuitos** (meta/splits) y **Sesiones** (descarga y análisis).
+
+**Antes de salir a pista (1 minuto):**
+1. **En vivo** → Iniciar escaneo → Conectar con la RaceBox Mini S → **Iniciar recepción**.
+2. **Circuitos** → con el kart **sobre la línea de meta y rodando en el sentido de marcha**,
+   pulsa **«Marcar meta aquí»** y ponle nombre (p. ej. «Karting La Esperanza»). Queda activo.
+   - Si al cronometrar no cuenta vueltas, pulsa **«Invertir sentido meta»** (el rumbo capturado
+     suele salir al revés si marcas parado).
+   - Opcional: pasa por un punto intermedio y pulsa **«Añadir split aquí»** para tener sectores
+     (hasta 4, como la app oficial).
+
+**Mientras ruedas:**
+3. **Cronometraje** → **Iniciar grabación** → cruza la meta para arrancar el cronómetro.
+   Verás vuelta actual en grande, última, mejor, **vuelta óptima**, delta vs mejor, y los sectores.
+4. Al acabar: **Detener y guardar** → la sesión queda en **Sesiones**.
+
+**Después:**
+5. **Sesiones** → **Ver**: trazada coloreada por velocidad, gráficas, delta y vueltas. También
+   puedes descargar la memoria interna de la RaceBox (si grabó en modo autónomo) y exportar GPX/CSV.
+
+**Notas:** el cronómetro crea la vuelta 1 al primer cruce de meta (la entrada hasta ahí no cuenta,
+igual que en las apps oficiales). Si el enganche BLE se corta, la grabación se detiene: vuelve a
+conectar y sigue.
+
+## 11. Pasos pendientes para una integración de producción
 
 1. Capturar 1 frame completo **con fix GNSS 3D** y guardarlo como vector real en los tests.
 2. Validar en iPhone y Android físicos (escaneo, conexión, datos, reconexión).

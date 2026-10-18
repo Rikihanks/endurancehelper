@@ -121,6 +121,8 @@ export class RaceBoxAdapter {
     this._destroyed = false;
     this._generation = 0;
     this._listeners = new Set();
+    /** @type {Set<(record:any)=>void>} */
+    this._recordListeners = new Set();
 
     // Memory / history download state.
     /** @type {ReturnType<typeof parseMemoryStatus>|null} */
@@ -142,6 +144,16 @@ export class RaceBoxAdapter {
   subscribe(listener) {
     this._listeners.add(listener);
     return () => this._listeners.delete(listener);
+  }
+
+  /**
+   * Subscribe to every decoded live record (for live timing / recording).
+   * @param {(record: import('./RaceBoxTypes.js').RaceBoxRecord) => void} listener
+   * @returns {() => void} unsubscribe
+   */
+  addRecordListener(listener) {
+    this._recordListeners.add(listener);
+    return () => this._recordListeners.delete(listener);
   }
 
   /** @returns {RaceBoxSnapshot} */
@@ -600,6 +612,7 @@ export class RaceBoxAdapter {
     this._connectedDeviceName = null;
     this._services = [];
     this._listeners.clear();
+    this._recordListeners.clear();
     this._state = BleConnectionState.IDLE;
     this._emit();
   }
@@ -689,6 +702,13 @@ export class RaceBoxAdapter {
     this._recent.push(record);
     if (this._recent.length > MAX_RECENT_RECORDS) this._recent.shift();
     this._recordTimes.push(now);
+    for (const listener of this._recordListeners) {
+      try {
+        listener(record);
+      } catch (_) {
+        /* a bad listener must not break BLE handling */
+      }
+    }
   }
 
   _resetMetrics() {

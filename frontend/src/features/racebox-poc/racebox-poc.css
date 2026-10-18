@@ -582,3 +582,49 @@ code {
   outline: 1px solid var(--accent2);
   outline-offset: -1px;
 }
+
+/* Live lap timer */
+.rb-laptimer {
+  display: grid;
+  grid-template-columns: minmax(220px, 1fr) 2fr;
+  gap: 12px;
+  align-items: stretch;
+}
+
+.rb-lap-big {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  border: 1px solid var(--accent2);
+  border-radius: 12px;
+  padding: 18px 12px;
+  background: var(--row);
+}
+
+.rb-lap-big span {
+  color: var(--muted);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  margin-bottom: 6px;
+}
+
+.rb-lap-big b {
+  font-family: var(--font-mono);
+  font-size: clamp(34px, 7vw, 56px);
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+}
+
+.rb-lap-side {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 10px;
+}
+
+@media (max-width: 640px) {
+  .rb-laptimer {
+    grid-template-columns: 1fr;
+  }
+}

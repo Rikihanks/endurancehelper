@@ -95,9 +95,13 @@ RaceChrono. Es replicable y legal con atribución.
 - Importar por nombre/área vía Overpass: `highway=raceway` → centerline; nodo `raceway=start/finish`
   → meta (deducir rumbo del propio trazado). Exportar/importar JSON propio para compartir.
 
-**Slice 3 — Análisis avanzado.**
-- Sectores en la UI (colores ± vs referencia), comparación de 2 vueltas superpuestas, delta de
-  velocidad, modos de lista (resumen/sectores/splits/canales).
+**Slice 3 — Análisis avanzado. ← PARCIAL (hecho: lap timer en vivo, sectores y vuelta óptima)**
+- **Cronometraje en vivo** (pestaña «Cronometraje»): vuelta actual en grande, última, mejor,
+  **vuelta óptima**, delta y sectores, con pop-ups al cruzar meta/splits, y grabación a local.
+- **Circuitos** (pestaña «Circuitos»): marcar meta/splits en el sitio, invertir sentido, renombrar,
+  borrar y crear un circuito desde una sesión guardada.
+- Pendiente: sectores con colores ± vs referencia, comparación de 2 vueltas superpuestas y
+  delta de velocidad.
 
 **Slice 4 — Trazada sobre mapa real (opcional).**
 - Teselas OSM/Mapbox con la trazada encima (requiere red; clave si se usa Mapbox). La trazada
