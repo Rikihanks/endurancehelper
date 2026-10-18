@@ -2,7 +2,9 @@ import { useCallback, useEffect, useState } from 'react';
 import { TrackStore } from '../../../services/storage/TrackStore.js';
 import { SessionStore } from '../../../services/storage/SessionStore.js';
 import { makeTrap, learnStartFinish } from '../../../services/devices/racebox/RaceBoxTrack.js';
+import { downsample } from '../../../services/devices/racebox/RaceBoxAnalysis.js';
 import { BUILTIN_TRACKS } from '../../../data/builtinTracks.js';
+import TrackEditor from './TrackEditor.jsx';
 
 // Track library and editor: create a track from the current position (stand on
 // the start/finish line) or learn one from a recorded session, add splits,
@@ -13,6 +15,12 @@ function fmtCoord(v) {
   return Number(v).toFixed(6);
 }
 
+/** Downsampled GPS trace of a session, used as a track centerline for editing. */
+function sessionCenterline(records, max = 400) {
+  if (!records || records.length < 2) return null;
+  return downsample(records, max).map((r) => ({ lat: r.latitude, lon: r.longitude }));
+}
+
 export default function TracksView({ adapter, snapshot, activeTrackId, onSelectTrack }) {
   const [tracks, setTracks] = useState([]);
   const [sessions, setSessions] = useState([]);
@@ -20,6 +28,8 @@ export default function TracksView({ adapter, snapshot, activeTrackId, onSelectT
   const [error, setError] = useState(null);
   const [message, setMessage] = useState(null);
   const [name, setName] = useState('');
+  const [placement, setPlacement] = useState('none');
+  const [centerSessionId, setCenterSessionId] = useState('');
 
   const connected = !!snapshot.connectedDeviceId;
   const latest = snapshot.latest;
@@ -102,11 +112,75 @@ export default function TracksView({ adapter, snapshot, activeTrackId, onSelectT
       const trap = learnStartFinish(session.records);
       if (!trap) throw new Error('No se pudo deducir la meta en esa sesión.');
       const trackName = name.trim() || `Circuito desde ${session.meta.name}`;
-      const id = await TrackStore.save({ name: trackName, startFinish: trap, splits: [] });
+      const id = await TrackStore.save({
+        name: trackName,
+        startFinish: trap,
+        splits: [],
+        centerline: sessionCenterline(session.records),
+      });
       setName('');
       await refresh();
       onSelectTrack(id);
-      setMessage(`Circuito «${trackName}» creado desde la sesión y activado.`);
+      setMessage(`Circuito «${trackName}» creado y activado. Ajusta meta y splits en el editor de abajo si quieres.`);
+    });
+
+  const applyPick = (point) =>
+    run('pick', async () => {
+      if (!activeTrack) throw new Error('Selecciona un circuito activo primero.');
+      if (placement === 'none') {
+        setMessage('Elige primero «Colocar meta» o «Añadir split» y luego toca el mapa.');
+        return;
+      }
+      if (placement === 'startFinish') {
+        await TrackStore.save({
+          ...activeTrack,
+          startFinish: makeTrap({
+            lat: point.lat,
+            lon: point.lon,
+            heading: point.heading,
+            width: activeTrack.startFinish?.width || 30,
+            type: 'startFinish',
+            name: 'Meta',
+          }),
+        });
+        setMessage(`Meta colocada (${fmtCoord(point.lat)}, ${fmtCoord(point.lon)}) · sentido ${point.heading.toFixed(0)}°.`);
+      } else {
+        const splits = [...(activeTrack.splits || [])];
+        splits.push(
+          makeTrap({
+            lat: point.lat,
+            lon: point.lon,
+            heading: point.heading,
+            width: 30,
+            type: 'split',
+            name: `Split ${splits.length + 1}`,
+          }),
+        );
+        await TrackStore.save({ ...activeTrack, splits });
+        setMessage(`Split ${splits.length} colocado (${fmtCoord(point.lat)}, ${fmtCoord(point.lon)}) · sentido ${point.heading.toFixed(0)}°.`);
+      }
+      setPlacement('none');
+      await refresh();
+    });
+
+  const removeSplit = (index) =>
+    run(`split:${index}`, async () => {
+      if (!activeTrack) return;
+      const splits = (activeTrack.splits || []).filter((_, i) => i !== index);
+      await TrackStore.save({ ...activeTrack, splits });
+      await refresh();
+      setMessage('Split eliminado.');
+    });
+
+  const attachCenterline = () =>
+    run('centerline', async () => {
+      if (!activeTrack) throw new Error('Selecciona un circuito activo primero.');
+      if (!centerSessionId) throw new Error('Elige una sesión.');
+      const session = await SessionStore.get(centerSessionId);
+      if (!session) throw new Error('Sesión no encontrada.');
+      await TrackStore.save({ ...activeTrack, centerline: sessionCenterline(session.records) });
+      await refresh();
+      setMessage('Trazada añadida: ya puedes editar meta y splits en el mapa.');
     });
 
   const invertStartFinish = () =>
@@ -149,17 +223,17 @@ export default function TracksView({ adapter, snapshot, activeTrackId, onSelectT
 
         {!activeTrack && (
           <p className="rb-note">
-            Tres formas de fijar la meta, de más fiable a menos:
+            Formas de fijar la meta, de más cómoda a menos:
             <br />
-            1. <b>Desde una sesión grabada</b> (abajo): rueda 2–3 vueltas con el cronómetro grabando
-            (aunque no haya circuito) y crea el circuito desde esa sesión. La meta se deduce de tu
-            trazada real.
+            0. <b>Editor sobre el mapa</b> (abajo): activa un circuito (los precargados ya tienen
+            trazada) y toca el mapa para colocar meta y splits. El sentido sale de la trazada.
             <br />
-            2. <b>Pulsando al cruzar la línea</b> a velocidad baja (con copiloto; no uses el móvil
-            conduciendo): posición y rumbo fiables.
+            1. <b>Desde una sesión grabada</b>: rueda 2–3 vueltas grabando (sin circuito) y crea el
+            circuito desde esa sesión.
             <br />
-            3. <b>Parado sobre la línea</b> mirando al sentido de marcha: rápido, pero el rumbo GPS
-            parado no es fiable.
+            2. <b>Pulsando al cruzar la línea</b> a velocidad baja (con copiloto).
+            <br />
+            3. <b>Parado sobre la línea</b>: rápido, pero el rumbo GPS parado no es fiable.
           </p>
         )}
 
@@ -210,6 +284,98 @@ export default function TracksView({ adapter, snapshot, activeTrackId, onSelectT
         {message && <p className="rb-note">{message}</p>}
         {error && <p className="rb-alert rb-alert-error">{error}</p>}
       </section>
+
+      {activeTrack && (
+        <section className="rb-card">
+          <div className="rb-card-head">
+            <h2>Editor de circuito</h2>
+            <span className="rb-muted">{activeTrack.name}</span>
+          </div>
+
+          <div className="rb-toolbar">
+            <button
+              type="button"
+              className={`rb-btn${placement === 'startFinish' ? ' rb-btn-primary' : ''}`}
+              onClick={() => setPlacement(placement === 'startFinish' ? 'none' : 'startFinish')}
+            >
+              Colocar meta
+            </button>
+            <button
+              type="button"
+              className={`rb-btn${placement === 'split' ? ' rb-btn-primary' : ''}`}
+              onClick={() => setPlacement(placement === 'split' ? 'none' : 'split')}
+            >
+              Añadir split
+            </button>
+            {placement !== 'none' && (
+              <button type="button" className="rb-btn" onClick={() => setPlacement('none')}>
+                Cancelar
+              </button>
+            )}
+          </div>
+
+          {placement !== 'none' && (
+            <p className="rb-note">
+              Toca sobre la <b>línea azul</b> del mapa para colocar {placement === 'startFinish' ? 'la meta' : 'el split'}.
+              El sentido se toma automáticamente de la dirección de la trazada (no dependes del rumbo del GPS parado).
+            </p>
+          )}
+
+          <TrackEditor
+            points={activeTrack.centerline || []}
+            traps={[activeTrack.startFinish, ...(activeTrack.splits || [])].filter(Boolean)}
+            onPick={applyPick}
+          />
+
+          {(activeTrack.splits || []).length > 0 && (
+            <div className="rb-table-wrap" style={{ marginTop: 10 }}>
+              <table className="rb-table">
+                <thead>
+                  <tr>
+                    <th>Split</th>
+                    <th>Posición</th>
+                    <th>Sentido</th>
+                    <th />
+                  </tr>
+                </thead>
+                <tbody>
+                  {activeTrack.splits.map((s, i) => (
+                    <tr key={i}>
+                      <td className="rb-mono">{s.name || `S${i + 1}`}</td>
+                      <td className="rb-mono">{fmtCoord(s.lat)}, {fmtCoord(s.lon)}</td>
+                      <td className="rb-mono">{s.heading.toFixed(0)}°</td>
+                      <td className="rb-actions-cell">
+                        <button type="button" className="rb-btn rb-btn-danger" disabled={!!busy} onClick={() => removeSplit(i)}>
+                          Quitar
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+
+          {!activeTrack.centerline && sessions.length > 0 && (
+            <div className="rb-toolbar" style={{ marginTop: 10 }}>
+              <label className="rb-field" style={{ minWidth: 220 }}>
+                <span className="rb-field-label">Añadir trazada desde una sesión grabada</span>
+                <select value={centerSessionId} onChange={(e) => setCenterSessionId(e.target.value)} disabled={!!busy}>
+                  <option value="">Elige una sesión…</option>
+                  {sessions.slice(0, 15).map((s) => (
+                    <option key={s.id} value={s.id}>
+                      {s.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <button type="button" className="rb-btn" onClick={attachCenterline} disabled={!!busy || !centerSessionId}>
+                Usar trazada
+              </button>
+            </div>
+          )}
+        </section>
+      )}
 
       <section className="rb-card">
         <div className="rb-card-head">

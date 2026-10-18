@@ -211,25 +211,23 @@ confirmación). Borra también es compatible con la app oficial, así que sincro
 La pantalla `/racebox` tiene cuatro pestañas: **En vivo** (BLE + GATT), **Cronometraje**
 (lap timer), **Circuitos** (meta/splits) y **Sesiones** (descarga y análisis).
 
-**Fijar la meta — tres formas (de más fiable a menos):**
+**Fijar la meta — formas (de más cómoda a menos):**
 
 | Forma | Cómo | Requiere |
 | --- | --- | --- |
-| **1. Desde una sesión grabada** (recomendada) | Rueda 2–3 vueltas con el **Cronometraje → Iniciar grabación** (funciona **sin circuito**), **Detener y guardar**, y luego **Circuitos → Crear circuito desde una sesión**. La meta se deduce de tu trazada real. | Grabar y guardar |
-| **2. Pulsar al cruzar la línea** | A velocidad baja, **con copiloto**, pulsar **«Marcar meta aquí»** justo al pasar la línea. Posición y rumbo fiables. | Copiloto (no usar el móvil conduciendo) |
-| **3. Parado sobre la línea** | Frenar **encima de la línea mirando al sentido de marcha** y pulsar **«Marcar meta aquí»**. Rápido, pero el **rumbo GPS parado no es fiable**. | Nada |
+| **0. Editor sobre el mapa** (recomendada si el circuito tiene trazada) | **Circuitos → Editor de circuito → «Colocar meta»** y **toca la línea azul** del mapa. El **sentido se toma de la trazada**, así que no dependes del rumbo del GPS parado. Para sectores: **«Añadir split»** y toca. | Que el circuito tenga trazada (incluidos los precargados de OSM) |
+| **1. Desde una sesión grabada** | Rueda 2–3 vueltas con **Cronometraje → Iniciar grabación** (funciona **sin circuito**), **Detener y guardar**, y **Circuitos → Crear circuito desde una sesión**. Además guarda la trazada, así que luego puedes afinarla en el editor. | Grabar y guardar |
+| **2. Pulsar al cruzar la línea** | A velocidad baja, **con copiloto**, pulsar **«Marcar meta aquí»** justo al pasar. | Copiloto |
+| **3. Parado sobre la línea** | **«Marcar meta aquí»** parado mirando al sentido de marcha. El rumbo parado no es fiable. | Nada |
 
 Tras marcar, si al cronometrar no cuenta vueltas, pulsa **«Invertir sentido meta»** (corrige 180°).
-Opcional: en un punto intermedio, **«Añadir split aquí»** para tener sectores (hasta 4, como la app oficial).
 
-**Paso a paso recomendado (primera vez en un circuito):**
-1. **En vivo** → Iniciar escaneo → Conectar con la RaceBox Mini S → **Iniciar recepción**.
-2. **Cronometraje** → **Iniciar grabación** (sin circuito: sólo graba) → rueda 2–3 vueltas.
-3. **Detener y guardar**.
-4. **Circuitos** → «Karting La Esperanza» → **Crear circuito desde una sesión** → queda activo.
-5. **Cronometraje** → **Iniciar grabación** → ya cronometra vuelta actual, última, mejor, óptima,
-   delta y sectores. Al acabar: **Detener y guardar**.
-6. **Sesiones** → **Ver**: trazada por velocidad, gráficas, delta y vueltas; export GPX/CSV.
+**Paso a paso recomendado (primera vez, con circuito precargado):**
+1. **En vivo** → Iniciar escaneo → Conectar → **Iniciar recepción**.
+2. **Circuitos** → activa **«Karting Canarias (La Esperanza)»** (viene precargado desde OSM).
+3. **Editor de circuito** → **«Colocar meta»** → toca la línea de meta en el mapa → **«Añadir split»** para 1–4 sectores.
+4. **Cronometraje** → **Iniciar grabación** → ya cronometra vuelta actual, última, mejor, óptima, delta y sectores.
+5. Al acabar: **Detener y guardar** → **Sesiones → Ver** (trazada, gráficas, delta, vueltas; export GPX/CSV).
 
 **Notas:** el cronómetro crea la vuelta 1 al primer cruce de meta (la entrada hasta ahí no cuenta,
 igual que en las apps oficiales). Si el enganche BLE se corta, la grabación se detiene: vuelve a

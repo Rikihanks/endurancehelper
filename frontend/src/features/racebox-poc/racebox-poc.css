@@ -515,7 +515,8 @@ code {
 }
 
 /* Inputs */
-.rb-field input {
+.rb-field input,
+.rb-field select {
   border: 1px solid var(--border2);
   background: var(--panel2);
   color: var(--text);
@@ -523,6 +524,11 @@ code {
   padding: 8px 10px;
   font-size: 13px;
   font-family: var(--font-ui);
+}
+
+.rb-editor-svg {
+  cursor: crosshair;
+  touch-action: manipulation;
 }
 
 /* Track map */
