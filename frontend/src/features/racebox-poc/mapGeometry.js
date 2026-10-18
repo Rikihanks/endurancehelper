@@ -38,6 +38,33 @@ export function projectPath(points) {
   return { vw, vh, project, unproject };
 }
 
+/**
+ * Smooth a polyline with a moving average (positions only; other fields are
+ * kept). Used to draw a clean racing line: at map zoom, half a metre of GPS
+ * noise looks like a 10 px zig-zag.
+ * @param {{lat:number, lon:number}[]} points
+ * @param {number} window samples either side
+ * @param {boolean} closed treat the polyline as a closed loop
+ */
+export function smoothPoints(points, window = 2, closed = true) {
+  if (!points || !points.length) return points ? points.slice() : [];
+  if (window < 1) return points.slice();
+  const n = points.length;
+  const idx = (i) => (closed ? ((i % n) + n) % n : Math.max(0, Math.min(n - 1, i)));
+  return points.map((p, i) => {
+    let lat = 0;
+    let lon = 0;
+    let count = 0;
+    for (let k = -window; k <= window; k++) {
+      const q = points[idx(i + k)];
+      lat += q.lat;
+      lon += q.lon;
+      count += 1;
+    }
+    return { ...p, lat: lat / count, lon: lon / count };
+  });
+}
+
 /** Bearing (clockwise from north) from a projected point a to b. */
 export function bearingBetween(a, b) {
   return ((Math.atan2(b.x - a.x, b.y - a.y) * 180) / Math.PI + 360) % 360;

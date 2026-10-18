@@ -4,6 +4,7 @@ import { SessionStore } from '../../../services/storage/SessionStore.js';
 import { makeTrap, learnStartFinish } from '../../../services/devices/racebox/RaceBoxTrack.js';
 import { downsample } from '../../../services/devices/racebox/RaceBoxAnalysis.js';
 import { parseTrackFile, parseCoordinateList, downsamplePoints } from '../../../utils/trackFiles.js';
+import { smoothPoints } from '../mapGeometry.js';
 import { BUILTIN_TRACKS } from '../../../data/builtinTracks.js';
 import TrackEditor from './TrackEditor.jsx';
 
@@ -16,10 +17,12 @@ function fmtCoord(v) {
   return Number(v).toFixed(6);
 }
 
-/** Downsampled GPS trace of a session, used as a track centerline for editing. */
+/** Downsampled (and lightly smoothed) GPS trace of a session, used as a track
+ * centerline for editing: raw positions look jagged at map zoom. */
 function sessionCenterline(records, max = 400) {
   if (!records || records.length < 2) return null;
-  return downsample(records, max).map((r) => ({ lat: r.latitude, lon: r.longitude }));
+  const raw = downsample(records, max).map((r) => ({ lat: r.latitude, lon: r.longitude }));
+  return smoothPoints(raw, 2, true);
 }
 
 export default function TracksView({ adapter, snapshot, activeTrackId, onSelectTrack }) {

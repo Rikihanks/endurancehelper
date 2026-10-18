@@ -6,6 +6,7 @@ import {
   bearingBetween,
   snapToPath,
   rotatePoint,
+  smoothPoints,
 } from '../src/features/racebox-poc/mapGeometry.js';
 
 test('projectPath is invertible (round trip lat/lon)', () => {
@@ -59,6 +60,45 @@ test('snapToPath snaps to the track and derives the heading', () => {
 test('projectPath returns null for a degenerate path', () => {
   assert.equal(projectPath([{ lat: 1, lon: 1 }]), null);
   assert.equal(projectPath(null), null);
+});
+
+test('smoothPoints removes zig-zag noise but keeps the shape', () => {
+  // Straight line with alternating +-2 m of noise (like GPS jitter).
+  const pts = [];
+  for (let i = 0; i < 40; i++) {
+    pts.push({ lat: 28.46, lon: -16.36 + i * 1e-5, speed: i });
+  }
+  const noisy = pts.map((p, i) => ({ ...p, lat: p.lat + (i % 2 ? 2 : -2) / 110540 }));
+  // A lap is a closed loop, so smoothing wraps around at both ends.
+  const smooth = smoothPoints(noisy, 2, true);
+
+  const spread = (arr) => {
+    const lats = arr.map((p) => p.lat);
+    return Math.max(...lats) - Math.min(...lats);
+  };
+  assert.ok(spread(noisy) > 3 / 110540, 'noisy input really is jagged');
+  assert.ok(
+    spread(smooth) < spread(noisy) / 3,
+    `smoothed spread=${spread(smooth)} vs ${spread(noisy)}`,
+  );
+
+  // The route still goes the same way and keeps other fields.
+  assert.ok(smooth[smooth.length - 1].lon > smooth[0].lon);
+  assert.equal(smooth[3].speed, 3);
+
+  // A perfectly straight line stays straight (open polyline: no wrap effect).
+  const straight = smoothPoints(pts, 2, false);
+  assert.ok(Math.abs(spread(straight)) < 1e-9);
+});
+
+test('smoothPoints returns a copy and handles degenerate input', () => {
+  const pts = [{ lat: 1, lon: 2 }];
+  assert.notEqual(smoothPoints(pts, 2, false), pts);
+  assert.deepEqual(smoothPoints(pts, 2, false), pts);
+  assert.deepEqual(smoothPoints(null), []);
+  assert.deepEqual(smoothPoints([], 2), []);
+  const copy = smoothPoints(pts, 0, false);
+  assert.notEqual(copy, pts);
 });
 
 test('rotatePoint preserves the distance to the centre', () => {

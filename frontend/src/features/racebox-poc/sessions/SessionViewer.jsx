@@ -12,6 +12,7 @@ import {
   toCsv,
 } from '../../../services/devices/racebox/RaceBoxAnalysis.js';
 import { buildTimeline, indexAtTime } from '../../../services/devices/racebox/playback.js';
+import { smoothPoints } from '../mapGeometry.js';
 import {
   computeTrackLaps,
   learnStartFinish,
@@ -34,6 +35,8 @@ export default function SessionViewer({ sessionId, onClose }) {
   const [playing, setPlaying] = useState(false);
   const [playSpeed, setPlaySpeed] = useState(1);
   const [tNow, setTNow] = useState(0);
+  const [smooth, setSmooth] = useState(true);
+  const smoothWindow = 2;
   const [reloadKey, setReloadKey] = useState(0);
   const rafRef = useRef(0);
 
@@ -182,8 +185,11 @@ export default function SessionViewer({ sessionId, onClose }) {
 
   const mapPoints = useMemo(() => {
     if (!grid) return [];
-    return grid.distances.map((_, i) => ({ lat: grid.lat[i], lon: grid.lon[i], speed: grid.speeds[i] }));
-  }, [grid]);
+    const raw = grid.distances.map((_, i) => ({ lat: grid.lat[i], lon: grid.lon[i], speed: grid.speeds[i] }));
+    // Positions are smoothed for drawing only (timing never uses this array):
+    // at ~22 px/m any GPS noise would look like a zig-zag.
+    return smooth ? smoothPoints(raw, smoothWindow, true) : raw;
+  }, [grid, smooth]);
 
   const ggPoints = useMemo(() => {
     if (!grid) return [];
@@ -438,6 +444,22 @@ export default function SessionViewer({ sessionId, onClose }) {
                     {s}×
                   </button>
                 ))}
+              </div>
+              <div className="rb-seg" role="group" aria-label="Trazada">
+                <button
+                  type="button"
+                  className={smooth ? 'active' : ''}
+                  onClick={() => setSmooth(true)}
+                >
+                  Suave
+                </button>
+                <button
+                  type="button"
+                  className={!smooth ? 'active' : ''}
+                  onClick={() => setSmooth(false)}
+                >
+                  Real
+                </button>
               </div>
             </div>
 
