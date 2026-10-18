@@ -147,9 +147,17 @@ export default function TracksView({ adapter, snapshot, activeTrackId, onSelectT
 
         {!activeTrack && (
           <p className="rb-note">
-            Sin circuito activo no hay cronometraje. Crea uno marcando la meta en el sitio: pon el
-            kart <b>sobre la línea de meta mirando al sentido de marcha</b> y pulsa «Marcar meta
-            aquí».
+            Tres formas de fijar la meta, de más fiable a menos:
+            <br />
+            1. <b>Desde una sesión grabada</b> (abajo): rueda 2–3 vueltas con el cronómetro grabando
+            (aunque no haya circuito) y crea el circuito desde esa sesión. La meta se deduce de tu
+            trazada real.
+            <br />
+            2. <b>Pulsando al cruzar la línea</b> a velocidad baja (con copiloto; no uses el móvil
+            conduciendo): posición y rumbo fiables.
+            <br />
+            3. <b>Parado sobre la línea</b> mirando al sentido de marcha: rápido, pero el rumbo GPS
+            parado no es fiable.
           </p>
         )}
 
@@ -176,9 +184,16 @@ export default function TracksView({ adapter, snapshot, activeTrackId, onSelectT
         </div>
         <p className="rb-muted" style={{ marginTop: 4 }}>
           {latest
-            ? `Posición actual: ${fmtCoord(latest.latitude)}, ${fmtCoord(latest.longitude)} · rumbo ${(latest.heading || 0).toFixed(0)}°`
+            ? `Posición actual: ${fmtCoord(latest.latitude)}, ${fmtCoord(latest.longitude)} · rumbo ${(latest.heading || 0).toFixed(0)}° · ${latest.speed.toFixed(1)} km/h`
             : 'Sin posición en vivo. Conéctate y pulsa «Iniciar recepción» en la pestaña En vivo.'}
         </p>
+        {latest && latest.speed < 1 && (
+          <p className="rb-alert rb-alert-warn">
+            El kart está casi parado: el <b>rumbo</b> que se guardará puede no ser fiable. Rueda muy
+            despacio al marcar, o marca la meta desde una sesión grabada. Si la meta no cuenta las
+            vueltas, pulsa «Invertir sentido meta».
+          </p>
+        )}
 
         {message && <p className="rb-note">{message}</p>}
         {error && <p className="rb-alert rb-alert-error">{error}</p>}

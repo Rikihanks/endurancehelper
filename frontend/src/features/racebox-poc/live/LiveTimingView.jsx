@@ -85,9 +85,6 @@ export default function LiveTimingView({ adapter, snapshot, activeTrackId, onGoT
     setError(null);
     setMessage(null);
     try {
-      if (!track || !track.startFinish) {
-        throw new Error('Selecciona un circuito activo en la pestaña Circuitos (o crea uno).');
-      }
       if (!connected) throw new Error('Conecta con la RaceBox en la pestaña En vivo.');
       if (!receiving) await adapter.startReceiving();
       recordsRef.current = [];
@@ -95,7 +92,14 @@ export default function LiveTimingView({ adapter, snapshot, activeTrackId, onGoT
       engineRef.current = new LiveTiming(track);
       recordingRef.current = true;
       setRecording(true);
-      setMessage('Grabando. Cruza la línea de meta para empezar a cronometrar.');
+      if (!track || !track.startFinish) {
+        setMessage(
+          'Grabando sin circuito: la sesión se guardará completa, pero no se cronometran vueltas. ' +
+            'Al terminar, créate el circuito en «Circuitos → Crear circuito desde una sesión».',
+        );
+      } else {
+        setMessage('Grabando. Cruza la línea de meta para empezar a cronometrar.');
+      }
     } catch (err) {
       setError(String(err.message || err));
     } finally {
@@ -163,8 +167,10 @@ export default function LiveTimingView({ adapter, snapshot, activeTrackId, onGoT
 
         {!track && (
           <p className="rb-alert rb-alert-warn">
-            Necesitas un circuito activo para cronometrar. Ve a la pestaña <b>Circuitos</b>, pon el
-            kart sobre la meta y pulsa «Marcar meta aquí».
+            <b>Sin circuito activo.</b> Puedes grabar igualmente (se guardará la sesión, sin
+            cronometrar). Para cronometrar, crea el circuito en <b>Circuitos</b>: rueda 2–3 vueltas
+            grabando y usa «Crear circuito desde una sesión» (lo más fiable), o marca la meta parado
+            sobre la línea.
             {onGoToTracks && (
               <>
                 {' '}
@@ -177,7 +183,7 @@ export default function LiveTimingView({ adapter, snapshot, activeTrackId, onGoT
         )}
 
         <div className="rb-toolbar">
-          <button type="button" className="rb-btn rb-btn-primary" onClick={start} disabled={!!busy || recording || !track}>
+          <button type="button" className="rb-btn rb-btn-primary" onClick={start} disabled={!!busy || recording}>
             Iniciar grabación
           </button>
           <button type="button" className="rb-btn rb-btn-danger" onClick={stopAndSave} disabled={!!busy || !recording}>

@@ -211,23 +211,25 @@ confirmación). Borra también es compatible con la app oficial, así que sincro
 La pantalla `/racebox` tiene cuatro pestañas: **En vivo** (BLE + GATT), **Cronometraje**
 (lap timer), **Circuitos** (meta/splits) y **Sesiones** (descarga y análisis).
 
-**Antes de salir a pista (1 minuto):**
+**Fijar la meta — tres formas (de más fiable a menos):**
+
+| Forma | Cómo | Requiere |
+| --- | --- | --- |
+| **1. Desde una sesión grabada** (recomendada) | Rueda 2–3 vueltas con el **Cronometraje → Iniciar grabación** (funciona **sin circuito**), **Detener y guardar**, y luego **Circuitos → Crear circuito desde una sesión**. La meta se deduce de tu trazada real. | Grabar y guardar |
+| **2. Pulsar al cruzar la línea** | A velocidad baja, **con copiloto**, pulsar **«Marcar meta aquí»** justo al pasar la línea. Posición y rumbo fiables. | Copiloto (no usar el móvil conduciendo) |
+| **3. Parado sobre la línea** | Frenar **encima de la línea mirando al sentido de marcha** y pulsar **«Marcar meta aquí»**. Rápido, pero el **rumbo GPS parado no es fiable**. | Nada |
+
+Tras marcar, si al cronometrar no cuenta vueltas, pulsa **«Invertir sentido meta»** (corrige 180°).
+Opcional: en un punto intermedio, **«Añadir split aquí»** para tener sectores (hasta 4, como la app oficial).
+
+**Paso a paso recomendado (primera vez en un circuito):**
 1. **En vivo** → Iniciar escaneo → Conectar con la RaceBox Mini S → **Iniciar recepción**.
-2. **Circuitos** → con el kart **sobre la línea de meta y rodando en el sentido de marcha**,
-   pulsa **«Marcar meta aquí»** y ponle nombre (p. ej. «Karting La Esperanza»). Queda activo.
-   - Si al cronometrar no cuenta vueltas, pulsa **«Invertir sentido meta»** (el rumbo capturado
-     suele salir al revés si marcas parado).
-   - Opcional: pasa por un punto intermedio y pulsa **«Añadir split aquí»** para tener sectores
-     (hasta 4, como la app oficial).
-
-**Mientras ruedas:**
-3. **Cronometraje** → **Iniciar grabación** → cruza la meta para arrancar el cronómetro.
-   Verás vuelta actual en grande, última, mejor, **vuelta óptima**, delta vs mejor, y los sectores.
-4. Al acabar: **Detener y guardar** → la sesión queda en **Sesiones**.
-
-**Después:**
-5. **Sesiones** → **Ver**: trazada coloreada por velocidad, gráficas, delta y vueltas. También
-   puedes descargar la memoria interna de la RaceBox (si grabó en modo autónomo) y exportar GPX/CSV.
+2. **Cronometraje** → **Iniciar grabación** (sin circuito: sólo graba) → rueda 2–3 vueltas.
+3. **Detener y guardar**.
+4. **Circuitos** → «Karting La Esperanza» → **Crear circuito desde una sesión** → queda activo.
+5. **Cronometraje** → **Iniciar grabación** → ya cronometra vuelta actual, última, mejor, óptima,
+   delta y sectores. Al acabar: **Detener y guardar**.
+6. **Sesiones** → **Ver**: trazada por velocidad, gráficas, delta y vueltas; export GPX/CSV.
 
 **Notas:** el cronómetro crea la vuelta 1 al primer cruce de meta (la entrada hasta ahí no cuenta,
 igual que en las apps oficiales). Si el enganche BLE se corta, la grabación se detiene: vuelve a
