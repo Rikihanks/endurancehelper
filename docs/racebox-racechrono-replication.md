@@ -125,7 +125,10 @@ RaceChrono. Es replicable y legal con atribución.
 - **Vías para tenerlo exacto**, en orden de fiabilidad:
   1. **Grabar una vuelta** con el RaceBox (Cronometraje → Iniciar grabación, funciona sin circuito) y
      crear el circuito desde esa sesión: es la trazada real, sin dibujar nada.
-  2. **Trazar sobre la ortofoto en Google Earth** y exportar KML → importar en el editor.
+  2. **Dibujar sobre la ortofoto y exportar KML**: en **Google My Maps** (mymaps.google.com) →
+     «Añadir línea» → dibujar la pista → «Exportar a KML» → importar en el editor. (Google Earth
+     **Pro** de escritorio también tiene «Añadir → Ruta»; la versión **web** no permite dibujar
+     rutas sin un proyecto.)
   3. **Pegar coordenadas**: clic derecho en Google Maps en cada punto del circuito (~15–30) y
      pegarlas en el editor.
 - Después, la meta y los sectores se colocan **tocando el mapa** en el editor (el sentido se toma de

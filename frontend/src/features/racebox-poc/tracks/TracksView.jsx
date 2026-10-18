@@ -435,7 +435,10 @@ export default function TracksView({ adapter, snapshot, activeTrackId, onSelectT
           <p className="rb-hint">
             Consejo: en Google Maps, clic derecho en cada punto del circuito → copiar «28.4668, -16.3485»
             y pégalos aquí (una línea por punto, ~15–30 para que quede bien; en el bucle con árboles
-            ve punteando los que puedas). O dibuja la ruta en Google Earth y exporta KML.
+            ve punteando los que puedas). Si prefieres dibujar: en <b>Google My Maps</b>
+            (mymaps.google.com) → «Añadir línea» → dibuja la pista → «Exportar a KML» → súbelo arriba
+            con «Importar trazada». Lo más exacto sigue siendo grabar una vuelta y crear el circuito
+            desde esa sesión.
           </p>
         </section>
       )}
