@@ -156,6 +156,36 @@ test('track laps expose every field the viewer renders', () => {
   }
 });
 
+test('computeTrackLaps splits each lap with the split traps', () => {
+  const records = circleRecords();
+  const at = (i) => records[i];
+  const track = {
+    startFinish: makeTrap({
+      lat: at(0).latitude,
+      lon: at(0).longitude,
+      heading: at(0).heading,
+      width: 60,
+      type: 'startFinish',
+    }),
+    splits: [
+      makeTrap({ lat: at(125).latitude, lon: at(125).longitude, heading: at(125).heading, width: 40, type: 'split', name: 'Sector 1' }),
+      makeTrap({ lat: at(375).latitude, lon: at(375).longitude, heading: at(375).heading, width: 40, type: 'split', name: 'Sector 2' }),
+    ],
+  };
+  const { laps, sectorCount, optimalLapS } = computeTrackLaps(records, track);
+  assert.equal(sectorCount, 3);
+  assert.ok(laps.length >= 3, `laps=${laps.length}`);
+  for (const lap of laps) {
+    assert.equal(lap.sectors.length, 3);
+    assert.ok(Math.abs(lap.sectors[0] - 5) < 0.2, `s1=${lap.sectors[0]}`);
+    assert.ok(Math.abs(lap.sectors[1] - 10) < 0.2, `s2=${lap.sectors[1]}`);
+    assert.ok(Math.abs(lap.sectors[2] - 5) < 0.2, `s3=${lap.sectors[2]}`);
+    const sum = lap.sectors.reduce((a, b) => a + (b || 0), 0);
+    assert.ok(Math.abs(sum - lap.durationS) < 0.2, 'sectors add up to the lap');
+  }
+  assert.ok(optimalLapS != null && Math.abs(optimalLapS - 20) < 0.3);
+});
+
 test('trackMatchesSession checks proximity of the session to the track', () => {
   const records = circleRecords({ laps: 1, pointsPerLap: 100 });
   const r0 = records[0];

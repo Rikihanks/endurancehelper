@@ -17,9 +17,12 @@ import {
   computeTrackLaps,
   learnStartFinish,
   trackMatchesSession,
+  makeTrap,
 } from '../../../services/devices/racebox/RaceBoxTrack.js';
 import TrackMap from './TrackMap.jsx';
 import LapTable from './LapTable.jsx';
+import SectorTable from './SectorTable.jsx';
+import TrackEditor from '../tracks/TrackEditor.jsx';
 import { SpeedChart, GForceChart, DeltaChart, GgPlot, CompareSpeedChart } from './ChannelCharts.jsx';
 
 const GRID_STEP_M = 5;
@@ -38,6 +41,8 @@ export default function SessionViewer({ sessionId, onClose }) {
   const [smooth, setSmooth] = useState(true);
   const [compare, setCompare] = useState(false);
   const [lapB, setLapB] = useState(0);
+  const [sectorMode, setSectorMode] = useState('none');
+  const [sectorMsg, setSectorMsg] = useState(null);
   const smoothWindow = 2;
   const [reloadKey, setReloadKey] = useState(0);
   const rafRef = useRef(0);
@@ -280,6 +285,83 @@ export default function SessionViewer({ sessionId, onClose }) {
     if (name === null) return;
     await TrackStore.save({ name: name || 'Circuito', startFinish: trap, splits: [] });
     setReloadKey((k) => k + 1);
+  }
+
+  async function ensureTrackForSession() {
+    const existing = analysis && analysis.matchedTrack;
+    if (existing) return existing;
+    const trap = learnStartFinish(session.records || []);
+    if (!trap) throw new Error('No se pudo deducir la meta en esta sesión (¿hubo movimiento?).');
+    const id = await TrackStore.save({
+      name: session.meta.name ? `Circuito · ${session.meta.name}` : 'Circuito',
+      startFinish: trap,
+      splits: [],
+      centerline: mapPoints.map((p) => ({ lat: p.lat, lon: p.lon })),
+    });
+    return TrackStore.get(id);
+  }
+
+  async function pickSector(point) {
+    if (sectorMode === 'none') {
+      setSectorMsg('Elige primero «Colocar meta» o «Añadir sector» y toca la línea del mapa.');
+      return;
+    }
+    try {
+      setSectorMsg(null);
+      const track = await ensureTrackForSession();
+      if (sectorMode === 'startFinish') {
+        await TrackStore.save({
+          ...track,
+          edited: true,
+          startFinish: makeTrap({
+            lat: point.lat,
+            lon: point.lon,
+            heading: point.heading,
+            width: track.startFinish ? track.startFinish.width : 20,
+            type: 'startFinish',
+            name: 'Meta',
+          }),
+        });
+        setSectorMsg('Meta actualizada: las vueltas se recalculan con la nueva línea.');
+      } else {
+        const splits = [...(track.splits || [])];
+        if (splits.length >= 4) {
+          setSectorMsg('Máximo 4 sectores (como la app oficial): quita alguno para añadir otro.');
+          return;
+        }
+        splits.push(
+          makeTrap({
+            lat: point.lat,
+            lon: point.lon,
+            heading: point.heading,
+            width: 30,
+            type: 'split',
+            name: `Sector ${splits.length + 1}`,
+          }),
+        );
+        await TrackStore.save({ ...track, edited: true, splits });
+        setSectorMsg(`Sector ${splits.length} añadido: tiempos recalculados.`);
+      }
+      setSectorMode('none');
+      setReloadKey((k) => k + 1);
+    } catch (err) {
+      setSectorMsg(`No se pudo guardar: ${String((err && err.message) || err)}`);
+    }
+  }
+
+  async function removeLastSector() {
+    try {
+      const track = analysis && analysis.matchedTrack;
+      if (!track || !(track.splits || []).length) {
+        setSectorMsg('No hay sectores que quitar.');
+        return;
+      }
+      await TrackStore.save({ ...track, edited: true, splits: track.splits.slice(0, -1) });
+      setSectorMsg('Último sector eliminado.');
+      setReloadKey((k) => k + 1);
+    } catch (err) {
+      setSectorMsg(`No se pudo quitar: ${String((err && err.message) || err)}`);
+    }
   }
 
   async function doExport(kind) {
@@ -707,6 +789,70 @@ export default function SessionViewer({ sessionId, onClose }) {
           </p>
         )}
       </section>
+
+      {moved && hasTrace && (
+        <section className="rb-card">
+          <div className="rb-card-head">
+            <h2>Sectores y meta</h2>
+            <span className="rb-muted">
+              {analysis.matchedTrack
+                ? `${(analysis.matchedTrack.splits || []).length} sectores · «${analysis.matchedTrack.name}»`
+                : 'se creará un circuito con esta sesión'}
+            </span>
+          </div>
+
+          <SectorTable laps={laps} bestIndex={bestIndex} />
+
+          <div className="rb-toolbar" style={{ marginTop: 10 }}>
+            <button
+              type="button"
+              className={sectorMode === 'startFinish' ? 'rb-btn rb-btn-primary' : 'rb-btn'}
+              onClick={() => setSectorMode(sectorMode === 'startFinish' ? 'none' : 'startFinish')}
+            >
+              Colocar meta
+            </button>
+            <button
+              type="button"
+              className={sectorMode === 'split' ? 'rb-btn rb-btn-primary' : 'rb-btn'}
+              onClick={() => setSectorMode(sectorMode === 'split' ? 'none' : 'split')}
+            >
+              Añadir sector
+            </button>
+            <button
+              type="button"
+              className="rb-btn"
+              onClick={removeLastSector}
+              disabled={!(analysis.matchedTrack && (analysis.matchedTrack.splits || []).length)}
+            >
+              Quitar último
+            </button>
+          </div>
+
+          {sectorMsg && <p className="rb-note">{sectorMsg}</p>}
+          {sectorMode !== 'none' && (
+            <p className="rb-note">
+              Toca sobre la <b>línea azul</b> (el trazado de esta vuelta) para colocar{' '}
+              {sectorMode === 'startFinish' ? 'la meta' : 'el sector'}. El sentido se toma de la
+              trazada, no del GPS parado.
+            </p>
+          )}
+
+          <TrackEditor
+            points={mapPoints}
+            traps={[
+              analysis.matchedTrack && analysis.matchedTrack.startFinish,
+              ...((analysis.matchedTrack && analysis.matchedTrack.splits) || []),
+            ].filter(Boolean)}
+            onPick={pickSector}
+          />
+
+          <p className="rb-hint">
+            Los cambios se guardan en el circuito, así que también valen para sesiones futuras (y
+            puedes afinarlos en la pestaña Circuitos). Colocar 1–4 sectores divide cada vuelta en
+            tramos y los tiempos se recalculan al instante.
+          </p>
+        </section>
+      )}
     </>
   );
 }
