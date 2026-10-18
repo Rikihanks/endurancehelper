@@ -138,7 +138,9 @@ export default function RaceBoxSessionsView({ adapter, snapshot }) {
       setDiag([]);
       try {
         const cap = typeof window !== 'undefined' ? window.Capacitor : null;
-        add(`runtime=${runtimePlatform()} · native=${isNativePlatform()} · Capacitor=${cap ? 'sí' : 'no'}`);
+        add(
+          `build=${typeof __INLAP_BUILD__ !== 'undefined' ? __INLAP_BUILD__ : 'dev'} · runtime=${runtimePlatform()} · native=${isNativePlatform()} · Capacitor=${cap ? 'sí' : 'no'}`,
+        );
         add(
           `plugins: Filesystem=${pluginAvailable('Filesystem')} · Share=${pluginAvailable('Share')} · BluetoothLe=${pluginAvailable('BluetoothLe')}`,
         );
