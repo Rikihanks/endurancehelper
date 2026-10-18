@@ -8,18 +8,8 @@ import {
   toCsv,
 } from '../../../services/devices/racebox/RaceBoxAnalysis.js';
 import SessionViewer from './SessionViewer.jsx';
-
-function download(filename, text, mime) {
-  const blob = new Blob([text], { type: mime });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = filename;
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
-  URL.revokeObjectURL(url);
-}
+import ErrorBoundary from '../ErrorBoundary.jsx';
+import { exportTextFile } from '../../../services/platform/exportFile.js';
 
 function sessionName(records, index) {
   const stats = { startDate: null };
@@ -140,7 +130,11 @@ export default function RaceBoxSessionsView({ adapter, snapshot }) {
     });
 
   if (selected) {
-    return <SessionViewer sessionId={selected} onClose={() => setSelected(null)} />;
+    return (
+      <ErrorBoundary onReset={() => setSelected(null)} resetLabel="Volver a sesiones">
+        <SessionViewer sessionId={selected} onClose={() => setSelected(null)} />
+      </ErrorBoundary>
+    );
   }
 
   return (
@@ -270,11 +264,27 @@ export default function RaceBoxSessionsView({ adapter, snapshot }) {
   async function onExport(meta, format) {
     try {
       const full = await SessionStore.get(meta.id);
-      if (!full) return;
-      if (format === 'gpx') download(`${meta.name}.gpx`, toGpx(full.records, { name: meta.name }), 'application/gpx+xml');
-      else download(`${meta.name}.csv`, toCsv(full.records), 'text/csv');
+      if (!full) {
+        setError('Sesión no encontrada.');
+        return;
+      }
+      const text =
+        format === 'gpx'
+          ? toGpx(full.records, { name: meta.name })
+          : toCsv(full.records);
+      const res = await exportTextFile(
+        `${meta.name}.${format}`,
+        text,
+        format === 'gpx' ? 'application/gpx+xml' : 'text/csv',
+      );
+      setError(null);
+      setMessage(
+        res.via === 'share'
+          ? `${res.filename}: se abrió el menú para guardarlo o compartirlo.`
+          : `Descargando ${res.filename}…`,
+      );
     } catch (err) {
-      setError(String(err.message || err));
+      setError(`No se pudo exportar: ${String((err && err.message) || err)}`);
     }
   }
 }
