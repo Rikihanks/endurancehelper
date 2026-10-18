@@ -47,6 +47,10 @@ export default function SessionViewer({ sessionId, onClose }) {
     setAnalysis(null);
     setError(null);
     setExportMsg(null);
+    if (!sessionId) {
+      setError('No se pudo identificar la sesión (falta el id). Vuelve a la lista y ábrela de nuevo.');
+      return undefined;
+    }
     SessionStore.get(sessionId)
       .then((s) => {
         if (cancelled) return;

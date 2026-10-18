@@ -31,6 +31,7 @@
   "devDependencies": {
     "@capacitor/cli": "7.6.9",
     "@vitejs/plugin-react": "^4.3.4",
+    "fake-indexeddb": "^6.2.6",
     "vite": "^5.4.11"
   }
 }

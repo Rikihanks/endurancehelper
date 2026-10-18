@@ -90,11 +90,11 @@ export const SessionStore = {
     return record.id;
   },
 
-  /** @returns {Promise<object[]>} metas, newest first */
+  /** @returns {Promise<object[]>} session metas (with their id), newest first */
   async list() {
     const records = await runTx('readonly', (store) => store.getAll());
     return (records || [])
-      .map((r) => r.meta)
+      .map((r) => ({ id: r.id, ...(r.meta || {}) }))
       .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
   },
 

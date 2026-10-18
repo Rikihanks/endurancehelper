@@ -125,8 +125,20 @@ export default function RaceBoxSessionsView({ adapter, snapshot }) {
     });
   };
 
+  const openSession = (session) => {
+    if (!session || !session.id) {
+      setError('Esta sesión no tiene identificador (dato antiguo). Bórrala y graba de nuevo.');
+      return;
+    }
+    setSelected(session.id);
+  };
+
   const onDelete = (id) =>
     run(`delete:${id}`, async () => {
+      if (!id) {
+        setError('La sesión no tiene identificador; borra los datos de la app y vuelve a grabar.');
+        return;
+      }
       await SessionStore.remove(id);
       await refresh();
     });
@@ -284,7 +296,7 @@ export default function RaceBoxSessionsView({ adapter, snapshot }) {
                     <td className="rb-mono rb-hide-sm">{s.maxSpeed != null ? `${s.maxSpeed.toFixed(0)}` : '—'}</td>
                     <td className="rb-mono rb-hide-sm">{s.distanceM != null ? `${(s.distanceM / 1000).toFixed(2)} km` : '—'}</td>
                     <td className="rb-actions-cell">
-                      <button type="button" className="rb-btn rb-btn-primary" onClick={() => setSelected(s.id)}>
+                      <button type="button" className="rb-btn rb-btn-primary" onClick={() => openSession(s)}>
                         Ver
                       </button>{' '}
                       <button type="button" className="rb-btn" disabled={!!busy} onClick={() => onExport(s, 'gpx')}>
@@ -323,6 +335,10 @@ export default function RaceBoxSessionsView({ adapter, snapshot }) {
 
   async function onExport(meta, format) {
     try {
+      if (!meta || !meta.id) {
+        setError('Esta sesión no tiene identificador (dato antiguo). Bórrala y graba de nuevo.');
+        return;
+      }
       const full = await SessionStore.get(meta.id);
       if (!full) {
         setError('Sesión no encontrada.');
