@@ -45,10 +45,10 @@ function PocLauncher() {
       onClick={() => navigate('#racebox')}
       style={{
         position: 'fixed',
-        top: 14,
-        right: 14,
+        top: 'calc(10px + env(safe-area-inset-top, 0px))',
+        right: 'calc(10px + env(safe-area-inset-right, 0px))',
         zIndex: 9999,
-        padding: '10px 14px',
+        padding: '11px 16px',
         borderRadius: 999,
         border: '1px solid #e2a33d',
         background: 'rgba(20,22,26,0.92)',
@@ -58,6 +58,7 @@ function PocLauncher() {
         fontWeight: 700,
         letterSpacing: '0.02em',
         cursor: 'pointer',
+        minHeight: 44,
         boxShadow: '0 6px 20px rgba(0,0,0,0.35)',
       }}
     >

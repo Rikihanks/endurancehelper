@@ -183,12 +183,6 @@ export default function LiveTimingView({ adapter, snapshot, activeTrackId, onGoT
         )}
 
         <div className="rb-toolbar">
-          <button type="button" className="rb-btn rb-btn-primary" onClick={start} disabled={!!busy || recording}>
-            Iniciar grabación
-          </button>
-          <button type="button" className="rb-btn rb-btn-danger" onClick={stopAndSave} disabled={!!busy || !recording}>
-            Detener y guardar
-          </button>
           <button
             type="button"
             className="rb-btn"
@@ -201,7 +195,7 @@ export default function LiveTimingView({ adapter, snapshot, activeTrackId, onGoT
           >
             Reiniciar cronómetro
           </button>
-          <span className="rb-muted">
+          <span className="rb-muted" style={{ alignSelf: 'center' }}>
             {connected ? (receiving ? 'enlace BLE activo' : 'conectado, sin recepción') : 'sin conexión'} ·{' '}
             {recordCount} registros
           </span>
@@ -322,6 +316,18 @@ export default function LiveTimingView({ adapter, snapshot, activeTrackId, onGoT
           </div>
         </section>
       )}
+
+      <div className="rb-actionbar">
+        {!recording ? (
+          <button type="button" className="rb-btn rb-btn-primary" onClick={start} disabled={!!busy}>
+            Iniciar grabación
+          </button>
+        ) : (
+          <button type="button" className="rb-btn rb-btn-danger" onClick={stopAndSave} disabled={!!busy}>
+            Detener y guardar
+          </button>
+        )}
+      </div>
     </>
   );
 }

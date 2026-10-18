@@ -227,8 +227,8 @@ export default function RaceBoxSessionsView({ adapter, snapshot }) {
                   <th>Fecha</th>
                   <th>Vueltas</th>
                   <th>Mejor</th>
-                  <th>V. máx</th>
-                  <th>Dist.</th>
+                  <th className="rb-hide-sm">V. máx</th>
+                  <th className="rb-hide-sm">Dist.</th>
                   <th />
                 </tr>
               </thead>
@@ -241,8 +241,8 @@ export default function RaceBoxSessionsView({ adapter, snapshot }) {
                     </td>
                     <td className="rb-mono">{s.lapCount ?? '—'}</td>
                     <td className="rb-mono">{s.bestLapS != null ? formatLapTime(s.bestLapS) : '—'}</td>
-                    <td className="rb-mono">{s.maxSpeed != null ? `${s.maxSpeed.toFixed(0)}` : '—'}</td>
-                    <td className="rb-mono">{s.distanceM != null ? `${(s.distanceM / 1000).toFixed(2)} km` : '—'}</td>
+                    <td className="rb-mono rb-hide-sm">{s.maxSpeed != null ? `${s.maxSpeed.toFixed(0)}` : '—'}</td>
+                    <td className="rb-mono rb-hide-sm">{s.distanceM != null ? `${(s.distanceM / 1000).toFixed(2)} km` : '—'}</td>
                     <td className="rb-actions-cell">
                       <button type="button" className="rb-btn rb-btn-primary" onClick={() => setSelected(s.id)}>
                         Ver

@@ -466,7 +466,7 @@ export default function TracksView({ adapter, snapshot, activeTrackId, onSelectT
                   <th>Activo</th>
                   <th>Circuito</th>
                   <th>Meta</th>
-                  <th>Splits</th>
+                  <th className="rb-hide-sm">Splits</th>
                   <th />
                 </tr>
               </thead>
@@ -504,7 +504,7 @@ export default function TracksView({ adapter, snapshot, activeTrackId, onSelectT
                         </>
                       )}
                     </td>
-                    <td className="rb-mono">{(t.splits || []).length}</td>
+                    <td className="rb-mono rb-hide-sm">{(t.splits || []).length}</td>
                     <td className="rb-actions-cell">
                       <button type="button" className="rb-btn" disabled={!!busy} onClick={() => rename(t)}>
                         Renombrar
