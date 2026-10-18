@@ -9,6 +9,7 @@ import {
   computeTrackEvents,
   learnStartFinish,
   trackMatchesSession,
+  suggestTrapFromCenterline,
 } from '../src/services/devices/racebox/RaceBoxTrack.js';
 
 // ~0.0009 deg lat is ~99.5 m; use small offsets helper
@@ -136,4 +137,37 @@ test('trackMatchesSession checks proximity of the session to the track', () => {
   assert.equal(trackMatchesSession(near, records), true);
   assert.equal(trackMatchesSession(far, records), false);
   assert.equal(trackMatchesSession(null, records), false);
+});
+
+test('suggestTrapFromCenterline places the line on the longest straight', () => {
+  // An oval: two long straights (east/west) joined by two short ends.
+  const mLat = 110540;
+  const mLon = 111320 * Math.cos((BASE.lat * Math.PI) / 180);
+  const P = (eastM, northM) => ({ lat: BASE.lat + northM / mLat, lon: BASE.lon + eastM / mLon });
+  const centerline = [];
+  // west straight going north, 200 m
+  for (let n = -100; n <= 100; n += 50) centerline.push(P(-60, n));
+  // north end
+  centerline.push(P(-30, 130));
+  centerline.push(P(0, 140));
+  centerline.push(P(30, 130));
+  // east straight going south, 200 m
+  for (let n = 100; n >= -100; n -= 50) centerline.push(P(60, n));
+  // south end
+  centerline.push(P(30, -130));
+  centerline.push(P(0, -140));
+  centerline.push(P(-30, -130));
+
+  const trap = suggestTrapFromCenterline(centerline, { width: 30 });
+  assert.ok(trap, 'a trap is suggested');
+  assert.equal(trap.type, 'startFinish');
+  assert.equal(trap.bidirectional, true);
+  // The line should land on a long straight, i.e. near x = -60 or x = +60 m.
+  const x = (trap.lon - BASE.lon) * mLon;
+  assert.ok(Math.abs(Math.abs(x) - 60) < 12, `x=${x}`);
+});
+
+test('suggestTrapFromCenterline returns null for a tiny path', () => {
+  assert.equal(suggestTrapFromCenterline([], {}), null);
+  assert.equal(suggestTrapFromCenterline([{ lat: 1, lon: 1 }, { lat: 1.001, lon: 1 }], {}), null);
 });

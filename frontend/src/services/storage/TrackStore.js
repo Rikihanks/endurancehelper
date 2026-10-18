@@ -60,6 +60,37 @@ function newId() {
   return `t-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`;
 }
 
+const HIDDEN_KEY = 'inlap-hidden-builtins';
+
+function hiddenBuiltins() {
+  try {
+    return JSON.parse(window.localStorage.getItem(HIDDEN_KEY) || '[]');
+  } catch (_) {
+    return [];
+  }
+}
+
+function hideBuiltin(id) {
+  try {
+    const list = hiddenBuiltins();
+    if (!list.includes(id)) {
+      list.push(id);
+      window.localStorage.setItem(HIDDEN_KEY, JSON.stringify(list));
+    }
+  } catch (_) {
+    /* ignore */
+  }
+}
+
+function unhideBuiltin(id) {
+  try {
+    const list = hiddenBuiltins().filter((x) => x !== id);
+    window.localStorage.setItem(HIDDEN_KEY, JSON.stringify(list));
+  } catch (_) {
+    /* ignore */
+  }
+}
+
 export const TrackStore = {
   async save(track) {
     const record = {
@@ -68,9 +99,37 @@ export const TrackStore = {
       createdAt: track.createdAt || Date.now(),
       startFinish: track.startFinish,
       splits: track.splits || [],
+      builtin: !!track.builtin,
+      centerline: track.centerline || null,
+      source: track.source || null,
     };
     await runTx('readwrite', (store) => store.put(record));
+    if (!record.builtin) unhideBuiltin(record.id);
     return record.id;
+  },
+
+  /** Insert the built-in tracks that are not stored yet and not hidden. */
+  async ensureBuiltins(list) {
+    const hidden = hiddenBuiltins();
+    const existing = new Set((await this.list()).map((t) => t.id));
+    let added = 0;
+    for (const track of list) {
+      if (existing.has(track.id) || hidden.includes(track.id)) continue;
+      await runTx('readwrite', (store) =>
+        store.put({
+          id: track.id,
+          name: track.name,
+          createdAt: Date.now(),
+          startFinish: track.startFinish,
+          splits: track.splits || [],
+          builtin: true,
+          centerline: track.centerline || null,
+          source: track.source || null,
+        }),
+      );
+      added += 1;
+    }
+    return added;
   },
 
   async list() {
@@ -83,6 +142,8 @@ export const TrackStore = {
   },
 
   async remove(id) {
+    const track = await this.get(id);
+    if (track && track.builtin) hideBuiltin(id);
     await runTx('readwrite', (store) => store.delete(id));
   },
 };

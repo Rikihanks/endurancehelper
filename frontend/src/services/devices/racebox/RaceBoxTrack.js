@@ -228,7 +228,69 @@ export function trackMatchesSession(track, records, toleranceM = 500) {
   return Math.hypot(x, y) <= toleranceM;
 }
 
-/** Compute the lap timing distance of a lap (used when sectors are missing). */
+/**
+ * Suggest a Start/Finish trap from a known centerline (e.g. imported from OSM):
+ * place it in the middle of the longest nearly-straight run, pointing along it.
+ * Used only to preload a track; the direction stays bidirectional so lap timing
+ * works whichever way you drive (the app lets you fix the heading later).
+ * @param {{lat:number, lon:number}[]} centerline
+ */
+export function suggestTrapFromCenterline(centerline, { width = 40 } = {}) {
+  if (!centerline || centerline.length < 4) return null;
+  const originLat = centerline[0].lat;
+  const originLon = centerline[0].lon;
+  const proj = centerline.map((p) => ({
+    x: (p.lon - originLon) * metersPerDegLon(originLat),
+    y: (p.lat - originLat) * M_PER_DEG_LAT,
+  }));
+
+  const bearingOf = (a, b) => ((Math.atan2(b.x - a.x, b.y - a.y) * 180) / Math.PI + 360) % 360;
+  const angleDiff = (a, b) => {
+    let d = Math.abs(a - b) % 360;
+    if (d > 180) d = 360 - d;
+    return d;
+  };
+
+  let best = null;
+  let runStart = 0;
+  let runBearing = null;
+  let runLen = 0;
+  for (let i = 1; i < proj.length; i++) {
+    const len = Math.hypot(proj[i].x - proj[i - 1].x, proj[i].y - proj[i - 1].y);
+    if (len < 3) continue;
+    const bearing = bearingOf(proj[i - 1], proj[i]);
+    if (runBearing == null || angleDiff(bearing, runBearing) < 12) {
+      if (runBearing == null) runBearing = bearing;
+      runLen += len;
+    } else {
+      if (!best || runLen > best.len) best = { start: runStart, end: i - 1, len: runLen };
+      runStart = i - 1;
+      runBearing = bearing;
+      runLen = len;
+    }
+  }
+  if (!best || runLen > best.len) {
+    if (runLen > 0) best = { start: runStart, end: proj.length - 1, len: runLen };
+  }
+  if (!best || best.len < 30) return null;
+
+  const a = centerline[best.start];
+  const b = centerline[best.end];
+  const heading = bearingOf(proj[best.start], proj[best.end]);
+  return makeTrap({
+    lat: (a.lat + b.lat) / 2,
+    lon: (a.lon + b.lon) / 2,
+    heading,
+    width,
+    bidirectional: true,
+    type: 'startFinish',
+    name: 'Meta (sugerida)',
+  });
+}
+
+/**
+ * Compute the lap timing distance of a lap (used when sectors are missing).
+ */
 export function lapDistanceM(records, lap) {
   let d = 0;
   for (let i = lap.startIndex + 1; i <= lap.endIndex; i++) {

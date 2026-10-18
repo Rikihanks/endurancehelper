@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { TrackStore } from '../../../services/storage/TrackStore.js';
 import { SessionStore } from '../../../services/storage/SessionStore.js';
 import { makeTrap, learnStartFinish } from '../../../services/devices/racebox/RaceBoxTrack.js';
+import { BUILTIN_TRACKS } from '../../../data/builtinTracks.js';
 
 // Track library and editor: create a track from the current position (stand on
 // the start/finish line) or learn one from a recorded session, add splits,
@@ -25,6 +26,7 @@ export default function TracksView({ adapter, snapshot, activeTrackId, onSelectT
 
   const refresh = useCallback(async () => {
     try {
+      await TrackStore.ensureBuiltins(BUILTIN_TRACKS);
       const [t, s] = await Promise.all([TrackStore.list(), SessionStore.list().catch(() => [])]);
       setTracks(t);
       setSessions(s);
@@ -175,10 +177,20 @@ export default function TracksView({ adapter, snapshot, activeTrackId, onSelectT
           <button type="button" className="rb-btn rb-btn-primary" onClick={createFromCurrent} disabled={!connected || !!busy || !latest}>
             Marcar meta aquí
           </button>
-          <button type="button" className="rb-btn" onClick={addSplitCurrent} disabled={!activeTrack || !connected || !!busy || !latest}>
+          <button
+            type="button"
+            className="rb-btn"
+            onClick={addSplitCurrent}
+            disabled={!activeTrack || !activeTrack.startFinish || !connected || !!busy || !latest}
+          >
             Añadir split aquí
           </button>
-          <button type="button" className="rb-btn" onClick={invertStartFinish} disabled={!activeTrack || !!busy}>
+          <button
+            type="button"
+            className="rb-btn"
+            onClick={invertStartFinish}
+            disabled={!activeTrack || !activeTrack.startFinish || !!busy}
+          >
             Invertir sentido meta
           </button>
         </div>
@@ -232,9 +244,25 @@ export default function TracksView({ adapter, snapshot, activeTrackId, onSelectT
                     </td>
                     <td>{t.name}</td>
                     <td className="rb-mono rb-break">
-                      {fmtCoord(t.startFinish.lat)}, {fmtCoord(t.startFinish.lon)}
-                      <br />
-                      <span className="rb-muted">ancho {t.startFinish.width} m · rumbo {t.startFinish.heading.toFixed(0)}°</span>
+                      {t.startFinish ? (
+                        <>
+                          {fmtCoord(t.startFinish.lat)}, {fmtCoord(t.startFinish.lon)}
+                          <br />
+                          <span className="rb-muted">
+                            ancho {t.startFinish.width} m · rumbo {t.startFinish.heading.toFixed(0)}°
+                            {t.startFinish.bidirectional ? ' · bidireccional' : ''}
+                          </span>
+                        </>
+                      ) : (
+                        <span className="rb-muted">meta pendiente: márcala en el sitio</span>
+                      )}
+                      {t.builtin && (
+                        <>
+                          <br />
+                          <span className="rb-tag">incluido</span>{' '}
+                          <span className="rb-muted">{t.source}</span>
+                        </>
+                      )}
                     </td>
                     <td className="rb-mono">{(t.splits || []).length}</td>
                     <td className="rb-actions-cell">
