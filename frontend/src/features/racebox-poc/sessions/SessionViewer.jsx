@@ -20,7 +20,7 @@ import {
 } from '../../../services/devices/racebox/RaceBoxTrack.js';
 import TrackMap from './TrackMap.jsx';
 import LapTable from './LapTable.jsx';
-import { SpeedChart, GForceChart, DeltaChart, GgPlot } from './ChannelCharts.jsx';
+import { SpeedChart, GForceChart, DeltaChart, GgPlot, CompareSpeedChart } from './ChannelCharts.jsx';
 
 const GRID_STEP_M = 5;
 const MIN_MOVED_M = 25;
@@ -36,6 +36,8 @@ export default function SessionViewer({ sessionId, onClose }) {
   const [playSpeed, setPlaySpeed] = useState(1);
   const [tNow, setTNow] = useState(0);
   const [smooth, setSmooth] = useState(true);
+  const [compare, setCompare] = useState(false);
+  const [lapB, setLapB] = useState(0);
   const smoothWindow = 2;
   const [reloadKey, setReloadKey] = useState(0);
   const rafRef = useRef(0);
@@ -132,12 +134,55 @@ export default function SessionViewer({ sessionId, onClose }) {
     return resampleLapByDistance(session.records, lap, GRID_STEP_M);
   }, [analysis, session, selectedLap]);
 
-  const timeline = useMemo(() => {
+  const timelineA = useMemo(() => {
     if (!analysis || !session) return null;
-    return buildTimeline(session.records, analysis.laps, {
-      lapIndex: scope === 'session' ? null : selectedLap,
+    return buildTimeline(session.records, analysis.laps, { lapIndex: selectedLap });
+  }, [analysis, session, selectedLap]);
+
+  const timelineSession = useMemo(() => {
+    if (compare || scope !== 'session' || !analysis || !session) return null;
+    return buildTimeline(session.records, analysis.laps, { lapIndex: null });
+  }, [compare, scope, analysis, session]);
+
+  const timeline = compare ? timelineA : scope === 'session' ? timelineSession : timelineA;
+
+  // Second lap of the comparison mode.
+  const gridB = useMemo(() => {
+    if (!compare || !analysis || !session) return null;
+    const lap = analysis.laps[lapB];
+    if (!lap || !(lap.distanceM > 0)) return null;
+    return resampleLapByDistance(session.records, lap, GRID_STEP_M);
+  }, [compare, analysis, session, lapB]);
+
+  const timelineB = useMemo(() => {
+    if (!compare || !analysis || !session) return null;
+    return buildTimeline(session.records, analysis.laps, { lapIndex: lapB });
+  }, [compare, analysis, session, lapB]);
+
+  const mapPointsB = useMemo(() => {
+    if (!gridB) return [];
+    const raw = gridB.distances.map((_, i) => ({ lat: gridB.lat[i], lon: gridB.lon[i], speed: gridB.speeds[i] }));
+    return smooth ? smoothPoints(raw, smoothWindow, true) : raw;
+  }, [gridB, smooth]);
+
+  const compareDelta = useMemo(() => {
+    if (!compare || !analysis || !session || lapB === selectedLap) return [];
+    const res = computeDeltas(session.records, analysis.laps, analysis.laps[selectedLap], GRID_STEP_M);
+    const entry = res[lapB];
+    return entry ? entry.distances.map((d, i) => ({ d, delta: entry.delta[i] })) : [];
+  }, [compare, analysis, session, selectedLap, lapB]);
+
+  const toggleCompare = () => {
+    setPlaying(false);
+    setTNow(0);
+    setCompare((prev) => {
+      if (!prev && analysis && analysis.laps.length > 1) {
+        const alt = analysis.bestIndex !== selectedLap ? analysis.bestIndex : selectedLap === 0 ? 1 : 0;
+        setLapB(Math.max(0, Math.min(analysis.laps.length - 1, alt)));
+      }
+      return !prev;
     });
-  }, [analysis, session, selectedLap, scope]);
+  };
 
   // Reset the playhead when the scope changes (not when the lap follows playback).
   useEffect(() => {
@@ -180,8 +225,28 @@ export default function SessionViewer({ sessionId, onClose }) {
   }, [playing, playSpeed, timeline]);
 
   const markerIdx = timeline ? indexAtTime(timeline.t, tNow) : 0;
-  const playbackEnd = timeline && timeline.t.length ? timeline.t[timeline.t.length - 1] : 0;
-  const playbackLap = timeline && timeline.lapOf.length ? timeline.lapOf[Math.min(markerIdx, timeline.lapOf.length - 1)] : selectedLap;
+  const idxB = timelineB ? indexAtTime(timelineB.t, tNow) : 0;
+  const endA = timelineA && timelineA.t.length ? timelineA.t[timelineA.t.length - 1] : 0;
+  const endB = timelineB && timelineB.t.length ? timelineB.t[timelineB.t.length - 1] : 0;
+  const playbackEnd = compare
+    ? Math.max(endA, endB)
+    : timeline && timeline.t.length
+      ? timeline.t[timeline.t.length - 1]
+      : 0;
+  const playbackLap =
+    timeline && timeline.lapOf.length
+      ? timeline.lapOf[Math.min(markerIdx, timeline.lapOf.length - 1)]
+      : selectedLap;
+  const currentB =
+    timelineB && timelineB.t.length
+      ? {
+          t: timelineB.t[idxB],
+          lat: timelineB.lat[idxB],
+          lon: timelineB.lon[idxB],
+          speed: timelineB.speed[idxB],
+          dist: timelineB.dist[idxB],
+        }
+      : null;
 
   const mapPoints = useMemo(() => {
     if (!grid) return [];
@@ -373,24 +438,99 @@ export default function SessionViewer({ sessionId, onClose }) {
               </span>
             </div>
 
-            <TrackMap
-              points={mapPoints}
-              marker={current ? { lat: current.lat, lon: current.lon } : null}
-            />
+            {compare ? (
+              <div className="rb-compare">
+                <div className="rb-compare-col">
+                  <div className="rb-compare-head">
+                    <span>
+                      A · Vuelta {selectedLap + 1}
+                      {selectedLap === bestIndex ? ' (mejor)' : ''}
+                    </span>
+                    <b>{formatLapTime(laps[selectedLap] && laps[selectedLap].durationS)}</b>
+                  </div>
+                  <TrackMap
+                    points={mapPoints}
+                    marker={current ? { lat: current.lat, lon: current.lon } : null}
+                  />
+                  <div className="rb-playback-readout">
+                    <span>{Number((current && current.dist) || 0).toFixed(0)} m</span>
+                    <span>{Number((current && current.speed) || 0).toFixed(1)} km/h</span>
+                  </div>
+                </div>
+                <div className="rb-compare-col">
+                  <div className="rb-compare-head">
+                    <span>
+                      B · Vuelta {lapB + 1}
+                      {lapB === bestIndex ? ' (mejor)' : ''}
+                    </span>
+                    <b>{formatLapTime(laps[lapB] && laps[lapB].durationS)}</b>
+                  </div>
+                  <TrackMap
+                    points={mapPointsB}
+                    marker={currentB ? { lat: currentB.lat, lon: currentB.lon } : null}
+                  />
+                  <div className="rb-playback-readout">
+                    <span>{Number((currentB && currentB.dist) || 0).toFixed(0)} m</span>
+                    <span>{Number((currentB && currentB.speed) || 0).toFixed(1)} km/h</span>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <TrackMap
+                points={mapPoints}
+                marker={current ? { lat: current.lat, lon: current.lon } : null}
+              />
+            )}
 
-            <div className="rb-transport">
-              <button
-                type="button"
-                className="rb-btn rb-btn-icon"
-                aria-label="Vuelta anterior"
-                disabled={scope === 'session' || selectedLap <= 0}
-                onClick={() => {
-                  setScope('lap');
-                  selectLap(Math.max(0, selectedLap - 1));
-                }}
-              >
-                ⏮
-              </button>
+            {compare && (
+              <div className="rb-toolbar" style={{ marginTop: 10 }}>
+                <label className="rb-field">
+                  <span className="rb-field-label">Vuelta B (la A es la seleccionada)</span>
+                  <select
+                    value={lapB}
+                    onChange={(e) => {
+                      setLapB(Number(e.target.value));
+                      setTNow(0);
+                      setPlaying(false);
+                    }}
+                  >
+                    {laps.map((l, i) => (
+                      <option key={i} value={i}>
+                        {`Vuelta ${i + 1} · ${formatLapTime(l.durationS)}`}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <div className="rb-kv">
+                  <span>A la misma t</span>
+                  <b>
+                    {Number((current && current.dist) || 0) - Number((currentB && currentB.dist) || 0) >= 0
+                      ? '+'
+                      : '−'}
+                    {Math.abs(
+                      Number((current && current.dist) || 0) - Number((currentB && currentB.dist) || 0),
+                    ).toFixed(1)}{' '}
+                    m
+                  </b>
+                </div>
+              </div>
+            )}
+
+            <div className={compare ? 'rb-transport rb-transport-single' : 'rb-transport'}>
+              {!compare && (
+                <button
+                  type="button"
+                  className="rb-btn rb-btn-icon"
+                  aria-label="Vuelta anterior"
+                  disabled={scope === 'session' || selectedLap <= 0}
+                  onClick={() => {
+                    setScope('lap');
+                    selectLap(Math.max(0, selectedLap - 1));
+                  }}
+                >
+                  ⏮
+                </button>
+              )}
               <button
                 type="button"
                 className="rb-btn rb-btn-primary rb-btn-play"
@@ -402,37 +542,51 @@ export default function SessionViewer({ sessionId, onClose }) {
               >
                 {playing ? '❚❚' : '▶'}
               </button>
-              <button
-                type="button"
-                className="rb-btn rb-btn-icon"
-                aria-label="Vuelta siguiente"
-                disabled={scope === 'session' || selectedLap >= laps.length - 1}
-                onClick={() => {
-                  setScope('lap');
-                  selectLap(Math.min(laps.length - 1, selectedLap + 1));
-                }}
-              >
-                ⏭
-              </button>
+              {!compare && (
+                <button
+                  type="button"
+                  className="rb-btn rb-btn-icon"
+                  aria-label="Vuelta siguiente"
+                  disabled={scope === 'session' || selectedLap >= laps.length - 1}
+                  onClick={() => {
+                    setScope('lap');
+                    selectLap(Math.min(laps.length - 1, selectedLap + 1));
+                  }}
+                >
+                  ⏭
+                </button>
+              )}
             </div>
 
             <div className="rb-transport-secondary">
-              <div className="rb-seg" role="group" aria-label="Qué reproducir">
-                <button
-                  type="button"
-                  className={scope === 'lap' ? 'active' : ''}
-                  onClick={() => setScope('lap')}
-                >
-                  Vuelta
-                </button>
-                <button
-                  type="button"
-                  className={scope === 'session' ? 'active' : ''}
-                  onClick={() => setScope('session')}
-                >
-                  Sesión completa
-                </button>
-              </div>
+              {!compare && (
+                <div className="rb-seg" role="group" aria-label="Qué reproducir">
+                  <button
+                    type="button"
+                    className={scope === 'lap' ? 'active' : ''}
+                    onClick={() => setScope('lap')}
+                  >
+                    Vuelta
+                  </button>
+                  <button
+                    type="button"
+                    className={scope === 'session' ? 'active' : ''}
+                    onClick={() => setScope('session')}
+                  >
+                    Sesión completa
+                  </button>
+                </div>
+              )}
+              {laps.length > 1 && (
+                <div className="rb-seg" role="group" aria-label="Comparación">
+                  <button type="button" className={!compare ? 'active' : ''} onClick={() => compare && toggleCompare()}>
+                    1 vuelta
+                  </button>
+                  <button type="button" className={compare ? 'active' : ''} onClick={() => !compare && toggleCompare()}>
+                    Comparar 2
+                  </button>
+                </div>
+              )}
               <div className="rb-seg" role="group" aria-label="Velocidad de reproducción">
                 {[1, 2, 4].map((s) => (
                   <button
@@ -446,18 +600,10 @@ export default function SessionViewer({ sessionId, onClose }) {
                 ))}
               </div>
               <div className="rb-seg" role="group" aria-label="Trazada">
-                <button
-                  type="button"
-                  className={smooth ? 'active' : ''}
-                  onClick={() => setSmooth(true)}
-                >
+                <button type="button" className={smooth ? 'active' : ''} onClick={() => setSmooth(true)}>
                   Suave
                 </button>
-                <button
-                  type="button"
-                  className={!smooth ? 'active' : ''}
-                  onClick={() => setSmooth(false)}
-                >
+                <button type="button" className={!smooth ? 'active' : ''} onClick={() => setSmooth(false)}>
                   Real
                 </button>
               </div>
@@ -486,15 +632,35 @@ export default function SessionViewer({ sessionId, onClose }) {
           </section>
 
           <section className="rb-card">
-            <h2>Canales · vuelta {selectedLap + 1}</h2>
-            <h3>Velocidad</h3>
-            <SpeedChart grid={grid} />
-            <h3>Aceleraciones (g)</h3>
-            <GForceChart grid={grid} />
-            <h3>Delta vs mejor vuelta</h3>
-            <DeltaChart data={deltaData} />
-            <h3>G-G</h3>
-            <GgPlot points={ggPoints} />
+            <h2>
+              {compare
+                ? `Comparación · vuelta ${selectedLap + 1} vs ${lapB + 1}`
+                : `Canales · vuelta ${selectedLap + 1}`}
+            </h2>
+            {compare ? (
+              <>
+                <h3>Velocidad (por distancia)</h3>
+                <CompareSpeedChart
+                  gridA={grid}
+                  gridB={gridB}
+                  labelA={`V${selectedLap + 1}`}
+                  labelB={`V${lapB + 1}`}
+                />
+                <h3>Delta de la vuelta {lapB + 1} respecto a la {selectedLap + 1}</h3>
+                <DeltaChart data={compareDelta} />
+              </>
+            ) : (
+              <>
+                <h3>Velocidad</h3>
+                <SpeedChart grid={grid} />
+                <h3>Aceleraciones (g)</h3>
+                <GForceChart grid={grid} />
+                <h3>Delta vs mejor vuelta</h3>
+                <DeltaChart data={deltaData} />
+                <h3>G-G</h3>
+                <GgPlot points={ggPoints} />
+              </>
+            )}
           </section>
         </>
       )}

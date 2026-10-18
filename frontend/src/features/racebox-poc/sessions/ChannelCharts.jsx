@@ -101,3 +101,29 @@ export function GgPlot({ points }) {
     </ResponsiveContainer>
   );
 }
+
+/** Speed of two laps overlaid by distance into the lap. */
+export function CompareSpeedChart({ gridA, gridB, labelA = 'A', labelB = 'B' }) {
+  if (!gridA || !gridB) return null;
+  const n = Math.min(gridA.distances.length, gridB.distances.length);
+  const data = [];
+  for (let i = 0; i < n; i++) {
+    data.push({ d: gridA.distances[i], a: gridA.speeds[i], b: gridB.speeds[i] });
+  }
+  return (
+    <ResponsiveContainer width="100%" height={220}>
+      <LineChart data={data} margin={{ top: 8, right: 12, bottom: 4, left: 0 }}>
+        <CartesianGrid stroke="var(--border)" strokeDasharray="3 3" />
+        <XAxis dataKey="d" tick={AXIS} unit="m" />
+        <YAxis tick={AXIS} width={44} />
+        <Tooltip
+          contentStyle={{ background: 'var(--panel2)', border: '1px solid var(--border2)', borderRadius: 8, fontSize: 12 }}
+          formatter={(v, name) => [`${Number(v).toFixed(1)} km/h`, name === 'a' ? labelA : labelB]}
+          labelFormatter={(d) => `${d} m`}
+        />
+        <Line type="monotone" dataKey="a" stroke="#4ea1ff" strokeWidth={2} dot={false} />
+        <Line type="monotone" dataKey="b" stroke="#ffb347" strokeWidth={2} dot={false} />
+      </LineChart>
+    </ResponsiveContainer>
+  );
+}
