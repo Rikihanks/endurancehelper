@@ -133,6 +133,17 @@ function findStartCandidate(records, cum, step = 2) {
 }
 
 /**
+ * Suggest a Start/Finish index from the tightest self-approach of the path.
+ * Used only to bootstrap a new track; a stored track uses explicit traps instead.
+ * @returns {number} index, or -1
+ */
+export function suggestStartIndex(records) {
+  if (!records || records.length < 10) return -1;
+  const cum = cumulativeDistance(records);
+  return findStartCandidate(records, cum);
+}
+
+/**
  * Detect laps. Returns an array of laps:
  *   { startIndex, endIndex, startMs, endMs, durationS, distanceM, maxSpeed, avgSpeed, maxLateralG, maxLongitudinalG, maxG }
  * @param {import('./RaceBoxTypes.js').RaceBoxRecord[]} records

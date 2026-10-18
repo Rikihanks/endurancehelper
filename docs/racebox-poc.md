@@ -161,11 +161,10 @@ oficial:
 confirmación). Borra también es compatible con la app oficial, así que sincroniza antes.
 
 **Limitaciones del visor:**
-- Las **vueltas se detectan por heurística** (el circuito no está en una base de datos como
-  en la app oficial): se busca el cruce más cerrado de la trazada (línea de meta) y se
-  cuentan los retornos. En circuitos cerrados funciona bien; en trazados abiertos la sesión
-  se muestra como un único tramo. Los tiempos de vuelta son aproximados al punto de meta
-  detectado, no a una línea oficial.
+- **Cronometraje:** si hay un circuito guardado para la sesión, las vueltas se calculan cruzando su
+  **línea de meta (trap con rumbo y ancho)** — determinista. Si no, se usa la **heurística** del
+  cruce más cerrado y el visor ofrece **«Guardar circuito»** para fijar la meta (a partir de ahí,
+  sin heurística). Ver `docs/racebox-racechrono-replication.md`.
 - Las sesiones se guardan **solo en este dispositivo** (IndexedDB del navegador/app). No se
   sincronizan entre dispositivos.
 - La descarga puede tardar (400–650 registros/s); una memoria llena son ~131 min a 25 Hz.

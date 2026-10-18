@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { SessionStore } from '../../../services/storage/SessionStore.js';
+import { TrackStore } from '../../../services/storage/TrackStore.js';
 import {
   detectLaps,
   sessionStats,
@@ -9,6 +10,11 @@ import {
   toGpx,
   toCsv,
 } from '../../../services/devices/racebox/RaceBoxAnalysis.js';
+import {
+  computeTrackLaps,
+  learnStartFinish,
+  trackMatchesSession,
+} from '../../../services/devices/racebox/RaceBoxTrack.js';
 import TrackMap from './TrackMap.jsx';
 import LapTable from './LapTable.jsx';
 import { SpeedChart, GForceChart, DeltaChart, GgPlot } from './ChannelCharts.jsx';
@@ -33,6 +39,7 @@ export default function SessionViewer({ sessionId, onClose }) {
   const [error, setError] = useState(null);
   const [selectedLap, setSelectedLap] = useState(0);
   const [marker, setMarker] = useState(0);
+  const [reloadKey, setReloadKey] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
@@ -54,14 +61,35 @@ export default function SessionViewer({ sessionId, onClose }) {
     };
   }, [sessionId]);
 
-  // Analysis is heavy on long sessions; run it after paint.
+  // Analysis is heavy on long sessions; run it after paint. If a saved track
+  // matches this session we time the laps from its traps (deterministic);
+  // otherwise we fall back to the heuristic and offer to learn the track.
   useEffect(() => {
     if (!session) return undefined;
     let cancelled = false;
-    const handle = setTimeout(() => {
+    const handle = setTimeout(async () => {
+      const records = session.records;
       try {
-        const records = session.records;
-        const laps = detectLaps(records);
+        let laps = null;
+        let optimalLapS = null;
+        let timing = 'heurística';
+        let matchedTrack = null;
+        try {
+          const tracks = await TrackStore.list();
+          matchedTrack = tracks.find((t) => trackMatchesSession(t, records)) || null;
+        } catch (_) {
+          matchedTrack = null;
+        }
+        if (matchedTrack) {
+          const res = computeTrackLaps(records, matchedTrack);
+          if (res.laps.length) {
+            laps = res.laps;
+            optimalLapS = res.optimalLapS;
+            timing = `circuito «${matchedTrack.name}»`;
+          }
+        }
+        if (!laps) laps = detectLaps(records);
+
         const stats = sessionStats(records, laps);
         let bestIndex = 0;
         laps.forEach((l, i) => {
@@ -69,7 +97,7 @@ export default function SessionViewer({ sessionId, onClose }) {
         });
         const deltas = laps.length ? computeDeltas(records, laps, laps[bestIndex], GRID_STEP_M) : [];
         if (!cancelled) {
-          setAnalysis({ laps, stats, bestIndex, deltas });
+          setAnalysis({ laps, stats, bestIndex, deltas, optimalLapS, timing, matchedTrack });
           setSelectedLap(bestIndex);
         }
       } catch (err) {
@@ -80,7 +108,21 @@ export default function SessionViewer({ sessionId, onClose }) {
       cancelled = true;
       clearTimeout(handle);
     };
-  }, [session]);
+  }, [session, reloadKey]);
+
+  async function learnTrack() {
+    if (!session) return;
+    const trap = learnStartFinish(session.records);
+    if (!trap) {
+      setError('No se pudo deducir una línea de meta para esta sesión.');
+      return;
+    }
+    const name = window.prompt('Nombre del circuito', `Circuito ${new Date().toISOString().slice(0, 10)}`);
+    if (name === null) return;
+    const id = await TrackStore.save({ name: name || 'Circuito', startFinish: trap, splits: [] });
+    void id;
+    setReloadKey((k) => k + 1);
+  }
 
   const grid = useMemo(() => {
     if (!analysis || !session) return null;
@@ -166,8 +208,18 @@ export default function SessionViewer({ sessionId, onClose }) {
             >
               Exportar CSV
             </button>
+            <button type="button" className="rb-btn rb-btn-primary" onClick={learnTrack}>
+              Guardar circuito
+            </button>
           </div>
         </div>
+
+        <p className="rb-note">
+          Cronometraje por <b>{analysis.timing}</b>.{' '}
+          {analysis.matchedTrack
+            ? 'Las vueltas se calculan cruzando la línea de meta del circuito (trap con rumbo y ancho).'
+            : 'No hay circuito guardado para esta sesión: se usa la detección por cruce más cerrado. Pulsa «Guardar circuito» y, a partir de ahí, esta y las futuras sesiones se cronometrarán con la meta (sin heurística).'}
+        </p>
 
         <div className="rb-metrics">
           <div className="rb-metric">
@@ -177,6 +229,10 @@ export default function SessionViewer({ sessionId, onClose }) {
           <div className="rb-metric">
             <span>Mejor vuelta</span>
             <b>{stats.bestLap ? formatLapTime(stats.bestLap.durationS) : '—'}</b>
+          </div>
+          <div className="rb-metric">
+            <span>Vuelta óptima</span>
+            <b>{analysis.optimalLapS ? formatLapTime(analysis.optimalLapS) : '—'}</b>
           </div>
           <div className="rb-metric">
             <span>Vel. máx</span>
