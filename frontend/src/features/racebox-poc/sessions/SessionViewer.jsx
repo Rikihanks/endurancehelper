@@ -249,17 +249,6 @@ export default function SessionViewer({ sessionId, onClose }) {
         }
       : null;
 
-  // The marker runs along the drawn (smoothed) line using the real distance
-  // travelled, so it never shows the GPS jitter.
-  const markerOnLine = (points, lapDist) => {
-    if (!points || points.length < 2) return null;
-    const d = Number(lapDist);
-    if (!Number.isFinite(d)) return null;
-    return interpolatePolyline(points, d / GRID_STEP_M);
-  };
-  const markerA = mapPoints ? markerOnLine(mapPoints, current && current.lapDist) : null;
-  const markerB = mapPointsB ? markerOnLine(mapPointsB, currentB && currentB.lapDist) : null;
-
   const mapPoints = useMemo(() => {
     if (!grid) return [];
     const raw = grid.distances.map((_, i) => ({ lat: grid.lat[i], lon: grid.lon[i], speed: grid.speeds[i] }));
@@ -358,6 +347,17 @@ export default function SessionViewer({ sessionId, onClose }) {
           lapDist: timeline.lapDist ? timeline.lapDist[markerIdx] : undefined,
         }
       : null;
+
+  // The marker runs along the drawn (smoothed) line using the real distance
+  // travelled, so it never shows the GPS jitter. Declared after mapPoints.
+  const markerOnLine = (points, lapDist) => {
+    if (!points || points.length < 2) return null;
+    const d = Number(lapDist);
+    if (!Number.isFinite(d)) return null;
+    return interpolatePolyline(points, d / GRID_STEP_M);
+  };
+  const markerA = markerOnLine(mapPoints, current && current.lapDist);
+  const markerB = markerOnLine(mapPointsB, currentB && currentB.lapDist);
 
   return (
     <>
