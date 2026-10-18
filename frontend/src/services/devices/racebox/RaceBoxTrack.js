@@ -158,12 +158,24 @@ export function computeTrackLaps(records, track) {
     sectors.push((e.ms - prevMs) / 1000);
 
     let maxSpeed = 0;
+    let speedSum = 0;
     let maxG = 0;
+    let maxLat = 0;
+    let maxLong = 0;
+    let samples = 0;
     for (let i = s.index; i <= e.index; i++) {
       const rec = records[i];
-      if (rec.speed > maxSpeed) maxSpeed = rec.speed;
-      const g = Math.max(Math.abs(rec.gForceX || 0), Math.abs(rec.gForceY || 0));
-      if (g > maxG) maxG = g;
+      if (!rec) continue;
+      samples += 1;
+      const sp = rec.speed || 0;
+      speedSum += sp;
+      if (sp > maxSpeed) maxSpeed = sp;
+      const gx = Math.abs(rec.gForceX || 0);
+      const gy = Math.abs(rec.gForceY || 0);
+      if (gx > maxLong) maxLong = gx;
+      if (gy > maxLat) maxLat = gy;
+      if (gx > maxG) maxG = gx;
+      if (gy > maxG) maxG = gy;
     }
 
     laps.push({
@@ -175,6 +187,9 @@ export function computeTrackLaps(records, track) {
       sectors,
       distanceM: lapDistanceM(records, { startIndex: s.index, endIndex: e.index }),
       maxSpeed,
+      avgSpeed: samples ? speedSum / samples : 0,
+      maxLateralG: maxLat,
+      maxLongitudinalG: maxLong,
       maxG,
     });
   }

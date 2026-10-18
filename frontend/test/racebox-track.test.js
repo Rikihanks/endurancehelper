@@ -129,6 +129,33 @@ test('learnStartFinish suggests a trap that times the laps', () => {
   for (const lap of laps) assert.ok(Math.abs(lap.durationS - 20) < 0.2, `duration=${lap.durationS}`);
 });
 
+test('track laps expose every field the viewer renders', () => {
+  const records = circleRecords();
+  const r0 = records[0];
+  const track = {
+    startFinish: makeTrap({ lat: r0.latitude, lon: r0.longitude, heading: r0.heading, width: 60 }),
+    splits: [],
+  };
+  const { laps } = computeTrackLaps(records, track);
+  assert.ok(laps.length > 0, 'laps are produced');
+  for (const lap of laps) {
+    for (const field of [
+      'durationS',
+      'distanceM',
+      'maxSpeed',
+      'avgSpeed',
+      'maxG',
+      'maxLateralG',
+      'maxLongitudinalG',
+      'startIndex',
+      'endIndex',
+    ]) {
+      assert.equal(typeof lap[field], 'number', `lap.${field} must be a number`);
+      assert.ok(Number.isFinite(lap[field]), `lap.${field} must be finite`);
+    }
+  }
+});
+
 test('trackMatchesSession checks proximity of the session to the track', () => {
   const records = circleRecords({ laps: 1, pointsPerLap: 100 });
   const r0 = records[0];

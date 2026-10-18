@@ -233,7 +233,7 @@ export default function SessionViewer({ sessionId, onClose }) {
                 ? `${startedAt.toISOString().replace('T', ' ').slice(0, 19)} UTC`
                 : 'fecha desconocida'}{' '}
               · {stats.recordCount} registros · {formatLapTime(stats.durationS)} ·{' '}
-              {(stats.distanceM / 1000).toFixed(2)} km
+              {(Number(stats.distanceM || 0) / 1000).toFixed(2)} km
             </p>
           </div>
         </div>
@@ -269,15 +269,15 @@ export default function SessionViewer({ sessionId, onClose }) {
           </div>
           <div className="rb-metric">
             <span>Vel. máx</span>
-            <b>{stats.maxSpeed.toFixed(0)} km/h</b>
+            <b>{Number(stats.maxSpeed || 0).toFixed(0)} km/h</b>
           </div>
           <div className="rb-metric">
             <span>G máx</span>
-            <b>{(stats.maxG / 1000).toFixed(2)} g</b>
+            <b>{(Number(stats.maxG || 0) / 1000).toFixed(2)} g</b>
           </div>
           <div className="rb-metric">
             <span>Distancia</span>
-            <b>{(stats.distanceM / 1000).toFixed(2)} km</b>
+            <b>{(Number(stats.distanceM || 0) / 1000).toFixed(2)} km</b>
           </div>
         </div>
         <p className="rb-note">
@@ -348,8 +348,8 @@ export default function SessionViewer({ sessionId, onClose }) {
         <LapTable laps={laps} bestIndex={bestIndex} selectedIndex={selectedLap} onSelect={setSelectedLap} />
         {lap && (
           <p className="rb-muted" style={{ marginTop: 10 }}>
-            Vuelta seleccionada: {formatLapTime(lap.durationS)} · {lap.distanceM.toFixed(0)} m · vel.
-            media {lap.avgSpeed.toFixed(1)} km/h
+            Vuelta seleccionada: {formatLapTime(lap.durationS)} · {Number(lap.distanceM || 0).toFixed(0)} m ·
+            vel. media {Number(lap.avgSpeed || 0).toFixed(1)} km/h
           </p>
         )}
       </section>

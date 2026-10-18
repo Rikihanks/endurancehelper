@@ -37,9 +37,9 @@ export default function LapTable({ laps, bestIndex, selectedIndex, onSelect }) {
                 <td className={`rb-mono ${delta > 0 ? 'rb-off' : 'rb-ok'}`}>
                   {isBest ? '—' : `${delta >= 0 ? '+' : '−'}${Math.abs(delta).toFixed(3)}`}
                 </td>
-                <td className="rb-mono rb-hide-sm">{lap.distanceM.toFixed(0)} m</td>
-                <td className="rb-mono rb-hide-sm">{lap.maxSpeed.toFixed(0)}</td>
-                <td className="rb-mono">{(lap.maxG / 1000).toFixed(2)} g</td>
+                <td className="rb-mono rb-hide-sm">{Number(lap.distanceM || 0).toFixed(0)} m</td>
+                <td className="rb-mono rb-hide-sm">{Number(lap.maxSpeed || 0).toFixed(0)}</td>
+                <td className="rb-mono">{(Number(lap.maxG || 0) / 1000).toFixed(2)} g</td>
               </tr>
             );
           })}

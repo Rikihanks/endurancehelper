@@ -380,7 +380,7 @@ export default function TracksView({ adapter, snapshot, activeTrackId, onSelectT
                     <tr key={i}>
                       <td className="rb-mono">{s.name || `S${i + 1}`}</td>
                       <td className="rb-mono">{fmtCoord(s.lat)}, {fmtCoord(s.lon)}</td>
-                      <td className="rb-mono">{s.heading.toFixed(0)}°</td>
+                      <td className="rb-mono">{Number(s.heading || 0).toFixed(0)}°</td>
                       <td className="rb-actions-cell">
                         <button type="button" className="rb-btn rb-btn-danger" disabled={!!busy} onClick={() => removeSplit(i)}>
                           Quitar
@@ -489,7 +489,8 @@ export default function TracksView({ adapter, snapshot, activeTrackId, onSelectT
                           {fmtCoord(t.startFinish.lat)}, {fmtCoord(t.startFinish.lon)}
                           <br />
                           <span className="rb-muted">
-                            ancho {t.startFinish.width} m · rumbo {t.startFinish.heading.toFixed(0)}°
+                            ancho {Number(t.startFinish.width || 0).toFixed(0)} m · rumbo{' '}
+                            {Number(t.startFinish.heading || 0).toFixed(0)}°
                             {t.startFinish.bidirectional ? ' · bidireccional' : ''}
                           </span>
                         </>
