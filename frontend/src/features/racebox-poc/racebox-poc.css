@@ -1,0 +1,460 @@
+/* Scoped styles for the RaceBox PoC screen. Uses the app's design tokens so it
+   follows the dark/light theme without touching global component styles. */
+
+.rb-page {
+  max-width: 1180px;
+  margin: 0 auto;
+  padding: 28px 20px 60px;
+  font-family: var(--font-ui);
+  color: var(--text);
+}
+
+.rb-header {
+  display: flex;
+  gap: 16px;
+  align-items: flex-start;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  margin-bottom: 20px;
+}
+
+.rb-kicker {
+  margin: 0 0 4px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--accent2);
+}
+
+.rb-header h1 {
+  margin: 0;
+  font-family: var(--font-hero);
+  font-size: clamp(28px, 5vw, 44px);
+  letter-spacing: 0.5px;
+}
+
+.rb-sub {
+  margin: 6px 0 0;
+  color: var(--muted);
+  max-width: 70ch;
+}
+
+.rb-back {
+  color: var(--text);
+  text-decoration: none;
+  border: 1px solid var(--border2);
+  padding: 8px 14px;
+  border-radius: 8px;
+  font-size: 13px;
+  white-space: nowrap;
+}
+
+.rb-back:hover {
+  border-color: var(--accent2);
+}
+
+.rb-card {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 20px;
+  margin-bottom: 20px;
+}
+
+.rb-card h2 {
+  margin: 0;
+  font-family: var(--font-hero);
+  font-size: 22px;
+  letter-spacing: 0.4px;
+}
+
+.rb-card h3 {
+  margin: 22px 0 10px;
+  font-size: 13px;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--muted);
+}
+
+.rb-card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 14px;
+}
+
+.rb-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  border: 1px solid var(--border2);
+  color: var(--muted);
+}
+
+.rb-pill::before {
+  content: "";
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--muted);
+}
+
+.rb-pill-scanning::before,
+.rb-pill-connecting::before,
+.rb-pill-initializing::before {
+  background: var(--warn);
+}
+.rb-pill-connected::before,
+.rb-pill-receiving::before {
+  background: var(--good);
+}
+.rb-pill-error::before {
+  background: var(--danger);
+}
+.rb-pill-disconnected::before {
+  background: var(--muted);
+}
+
+.rb-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  gap: 10px 18px;
+}
+
+.rb-kv {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--row);
+  font-size: 13px;
+}
+
+.rb-kv span {
+  color: var(--muted);
+}
+
+.rb-ok {
+  color: var(--good);
+  font-weight: 600;
+}
+
+.rb-off {
+  color: var(--danger);
+  font-weight: 600;
+}
+
+.rb-note {
+  grid-column: 1 / -1;
+  margin: 6px 0 0;
+  padding: 10px 12px;
+  border-left: 3px solid var(--accent2);
+  background: var(--panel2);
+  color: var(--muted);
+  font-size: 12.5px;
+  border-radius: 0 8px 8px 0;
+}
+
+.rb-note-warn {
+  border-left-color: var(--danger);
+  color: var(--text);
+}
+
+.rb-alert {
+  margin: 14px 0;
+  padding: 12px 14px;
+  border-radius: 8px;
+  border: 1px solid var(--border2);
+  font-size: 13px;
+}
+
+.rb-alert-error {
+  border-color: var(--danger);
+  background: rgba(209, 79, 79, 0.09);
+}
+
+.rb-alert-warn {
+  border-color: var(--warn);
+  background: rgba(226, 163, 61, 0.09);
+}
+
+.rb-hint {
+  margin-top: 6px;
+  color: var(--muted);
+  font-size: 12.5px;
+}
+
+.rb-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 16px 0 4px;
+}
+
+.rb-btn {
+  appearance: none;
+  border: 1px solid var(--border2);
+  background: var(--panel2);
+  color: var(--text);
+  padding: 9px 14px;
+  border-radius: 8px;
+  font-family: var(--font-ui);
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: border-color 0.15s ease, opacity 0.15s ease;
+}
+
+.rb-btn:hover:not(:disabled) {
+  border-color: var(--accent2);
+}
+
+.rb-btn:disabled {
+  opacity: 0.38;
+  cursor: not-allowed;
+}
+
+.rb-btn-primary {
+  border-color: var(--accent2);
+  color: var(--text);
+}
+
+.rb-btn-danger {
+  border-color: var(--danger);
+  color: var(--danger);
+}
+
+.rb-actions-cell {
+  text-align: right;
+}
+
+.rb-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.rb-table th {
+  text-align: left;
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--border2);
+  color: var(--muted);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-weight: 600;
+}
+
+.rb-table td {
+  padding: 9px 10px;
+  border-bottom: 1px solid var(--border);
+  vertical-align: middle;
+}
+
+.rb-row-active {
+  background: var(--our-bg);
+}
+
+.rb-table-wrap {
+  overflow-x: auto;
+}
+
+.rb-mono,
+code {
+  font-family: var(--font-mono);
+  font-size: 12px;
+}
+
+.rb-break {
+  word-break: break-all;
+}
+
+.rb-muted {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.rb-gatt {
+  display: grid;
+  gap: 10px;
+}
+
+.rb-service {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px 12px;
+  background: var(--row);
+}
+
+.rb-service-nus {
+  border-color: var(--accent2);
+}
+
+.rb-service-head {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  flex-wrap: wrap;
+  margin-bottom: 8px;
+}
+
+.rb-tag {
+  font-size: 10.5px;
+  padding: 2px 7px;
+  border-radius: 999px;
+  border: 1px solid var(--border2);
+  color: var(--accent2);
+  white-space: nowrap;
+}
+
+.rb-char-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 6px;
+}
+
+.rb-char-list li {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.rb-props {
+  display: inline-flex;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+
+.rb-props em {
+  font-style: normal;
+  font-size: 10.5px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: var(--panel2);
+  border: 1px solid var(--border);
+  color: var(--muted);
+}
+
+.rb-metrics {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.rb-metric {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px 12px;
+  background: var(--row);
+}
+
+.rb-metric span {
+  display: block;
+  color: var(--muted);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  margin-bottom: 4px;
+}
+
+.rb-metric b {
+  font-family: var(--font-mono);
+  font-size: 18px;
+  font-variant-numeric: tabular-nums;
+}
+
+.rb-data-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 10px;
+}
+
+.rb-field {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px 12px;
+  background: var(--row);
+}
+
+.rb-field-label {
+  display: block;
+  color: var(--muted);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  margin-bottom: 4px;
+}
+
+.rb-field-value {
+  display: block;
+  font-family: var(--font-mono);
+  font-size: 16px;
+  font-variant-numeric: tabular-nums;
+}
+
+.rb-field-hint {
+  display: block;
+  color: var(--muted);
+  font-size: 11px;
+  margin-top: 3px;
+}
+
+.rb-footer {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.rb-flags {
+  display: grid;
+  gap: 6px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.rb-flags b {
+  color: var(--text);
+}
+
+.rb-hex {
+  margin: 0;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--row);
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  line-height: 1.7;
+  white-space: pre-wrap;
+  word-break: break-all;
+  color: var(--text);
+}
+
+@media (max-width: 640px) {
+  .rb-page {
+    padding: 18px 12px 48px;
+  }
+  .rb-card {
+    padding: 14px;
+  }
+  .rb-table td,
+  .rb-table th {
+    padding: 7px 6px;
+    font-size: 12px;
+  }
+}

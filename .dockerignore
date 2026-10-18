@@ -8,6 +8,10 @@ frontend/dist
 .env.*
 backend/data
 backend/data/sessions
+# Native projects (se compilan con Xcode/Android Studio; no hacen falta para
+# construir ni ejecutar la web en el servidor).
+frontend/android
+frontend/ios
 *.log
 Thumbs.db
 .DS_Store

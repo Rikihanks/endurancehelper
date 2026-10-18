@@ -9,6 +9,18 @@ import PostRaceDemo from './components/PostRaceDemo.jsx';
 // IBM Plex / Archivo). Copy del dolor real del endurance: paradas, pitlane
 // cerrado, posición virtual. Ruta "/" ; la app vive en "/app".
 
+// The RaceBox PoC link is only exposed during development or inside the native
+// Capacitor container, so the public landing page is unchanged for users.
+function showPocLink() {
+  if (import.meta.env.DEV) return true;
+  const cap = typeof window !== 'undefined' ? window.Capacitor : null;
+  try {
+    return !!cap && (cap.isNativePlatform ? cap.isNativePlatform() : cap.getPlatform?.() !== 'web');
+  } catch (_) {
+    return false;
+  }
+}
+
 // Teaser compacto para el hero: cuenta atrás + delta + mini carril de pits.
 function HeroLive() {
   const [sec, setSec] = useState(4 * 3600 + 12 * 60 + 47);
@@ -209,6 +221,11 @@ export default function Landing() {
         <span>InLap Karting</span>
         <a href="/app">Login</a>
         <span>Por pilotos y para pilotos.</span>
+        {showPocLink() && (
+          <a href="#racebox" title="Diagnóstico BLE RaceBox (PoC)">
+            RaceBox PoC
+          </a>
+        )}
       </footer>
     </div>
   );

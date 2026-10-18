@@ -19,6 +19,8 @@ jobs:
       - run: npm ci
       - name: Backend tests
         run: npm test --workspace backend
+      - name: Frontend tests (protocol + BLE adapter)
+        run: npm test --workspace frontend
       - name: Frontend build
         run: npm run build --workspace frontend
       - name: Migrations up to date

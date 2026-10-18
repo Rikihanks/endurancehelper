@@ -1,0 +1,18 @@
+{
+  "appId": "com.inlap.poc",
+  "appName": "InLap",
+  "webDir": "dist",
+  "server": {
+    "androidScheme": "https"
+  },
+  "plugins": {
+    "BluetoothLe": {
+      "displayStrings": {
+        "scanning": "Buscando dispositivos...",
+        "cancel": "Cancelar",
+        "availableDevices": "Dispositivos disponibles",
+        "noDeviceFound": "No se encontraron dispositivos"
+      }
+    }
+  }
+}
