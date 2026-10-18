@@ -132,7 +132,45 @@ npm run cap:open:ios --workspace frontend   # abre Xcode
 6. Pulsa **Detener recepción**, **Desconectar** y vuelve a conectar sin reiniciar
    la app para validar el ciclo de vida.
 
-## 6. Estado de validación (PoC)
+## 6. Descarga y visor de sesiones (pestaña «Sesiones»)
+
+El RaceBox Mini S guarda sesiones en su memoria interna; la pestaña **Sesiones** las
+descarga por BLE y las analiza en local (no hay backend ni nube).
+
+**Descargar:**
+1. En «En vivo», conecta con la RaceBox.
+2. En «Sesiones», deja el **código de seguridad** (por defecto `123456`) y pulsa
+   **Consultar memoria** para ver el estado (%, registros, seguridad).
+3. Pulsa **Descargar sesiones**. El dispositivo deshabilita la telemetría en vivo
+   mientras descarga (es normal). Verás una barra de progreso;
+   **Cancelar descarga** aborta de forma segura.
+4. Cada tramo de grabación se guarda como una **sesión** separada (fronteras `0xFF/0x26`).
+
+**Ver una sesión:** abre la lista y pulsa **Ver**. El visor replica el enfoque de la app
+oficial:
+- **Trazada** dibujada con el GPS, **coloreada por velocidad**, con marcador y control
+  de reproducción (distancia, velocidad, G lateral/longitudinal, tiempo).
+- **Gráficas** de velocidad y de aceleraciones (g) por distancia, **delta vs mejor vuelta**
+  y **gráfico G-G**.
+- **Vueltas** con tiempo, delta total, distancia, velocidad máxima y G máxima; mejor vuelta
+  resaltada.
+
+**Exportar:** GPX (trazada) y CSV (telemetría) desde la lista de sesiones.
+
+**Borrar memoria del dispositivo:** botón **Borrar memoria** (irreversible, pide
+confirmación). Borra también es compatible con la app oficial, así que sincroniza antes.
+
+**Limitaciones del visor:**
+- Las **vueltas se detectan por heurística** (el circuito no está en una base de datos como
+  en la app oficial): se busca el cruce más cerrado de la trazada (línea de meta) y se
+  cuentan los retornos. En circuitos cerrados funciona bien; en trazados abiertos la sesión
+  se muestra como un único tramo. Los tiempos de vuelta son aproximados al punto de meta
+  detectado, no a una línea oficial.
+- Las sesiones se guardan **solo en este dispositivo** (IndexedDB del navegador/app). No se
+  sincronizan entre dispositivos.
+- La descarga puede tardar (400–650 registros/s); una memoria llena son ~131 min a 25 Hz.
+
+## 7. Estado de validación (PoC)
 
 - **Validado con hardware real**: escaneo, conexión GATT, descubrimiento NUS (RX/TX),
   suscripción y **streaming** (`0xFF/0x01`) a ~25 Hz con **0 errores de checksum**.
@@ -144,7 +182,7 @@ npm run cap:open:ios --workspace frontend   # abre Xcode
 - El decodificador está verificado además contra el **paquete oficial (rev 9)**.
 - El motor de estrategia, el backend y las rutas existentes no se han modificado.
 
-## 7. Limitaciones conocidas (PoC)
+## 8. Limitaciones conocidas (PoC)
 
 - **Sin fix GNSS no hay posición**: lat/lon/velocidad/rumbo llegan a cero y la fecha aparece
   como `2020-08-02`. Es el comportamiento del dispositivo, no un error de InLap.
@@ -156,7 +194,7 @@ npm run cap:open:ios --workspace frontend   # abre Xcode
 - La compilación nativa no se ha ejecutado en este entorno (falta Xcode/Android
   SDK). El proyecto se genera y sincroniza; el build queda pendiente.
 
-## 8. Problemas habituales
+## 9. Problemas habituales
 
 | Síntoma | Causa / solución |
 | --- | --- |
@@ -169,7 +207,7 @@ npm run cap:open:ios --workspace frontend   # abre Xcode
 | Sin datos tras «Iniciar recepción» | La RaceBox no está transmitiendo o se perdió la conexión; revisa el estado y vuelve a conectar. |
 | `cap sync` avisa de CocoaPods en iOS | Estás fuera de macOS; `pod install` y el build iOS requieren macOS. |
 
-## 9. Pasos pendientes para una integración de producción
+## 10. Pasos pendientes para una integración de producción
 
 1. Capturar 1 frame completo **con fix GNSS 3D** y guardarlo como vector real en los tests.
 2. Validar en iPhone y Android físicos (escaneo, conexión, datos, reconexión).

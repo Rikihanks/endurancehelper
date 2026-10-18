@@ -108,15 +108,21 @@ export function decodeFrame(frame) {
       return record ? { kind: 'history', id: frame.id, record } : null;
     }
     case RACEBOX_ID.ACK:
-      return { kind: 'ack', id: frame.id };
+      return { kind: 'ack', id: frame.id, payload: frame.payload };
     case RACEBOX_ID.NACK:
-      return { kind: 'nack', id: frame.id };
+      return { kind: 'nack', id: frame.id, payload: frame.payload };
     case RACEBOX_ID.REC_STATUS:
+      return { kind: 'status', id: frame.id, payload: frame.payload };
     case RACEBOX_ID.DOWNLOAD:
+      return { kind: 'download', id: frame.id, payload: frame.payload };
+    case RACEBOX_ID.ERASE:
+      return { kind: 'erase', id: frame.id, payload: frame.payload };
+    case RACEBOX_ID.REC_CONFIG:
+      return { kind: 'recConfig', id: frame.id, payload: frame.payload };
     case RACEBOX_ID.STATE_CHANGE:
-      return { kind: 'status', id: frame.id };
+      return { kind: 'stateChange', id: frame.id, payload: frame.payload };
     default:
-      return { kind: 'unknown', id: frame.id };
+      return { kind: 'unknown', id: frame.id, payload: frame.payload };
   }
 }
 

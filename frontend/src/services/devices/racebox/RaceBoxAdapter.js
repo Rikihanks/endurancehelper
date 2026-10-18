@@ -28,13 +28,35 @@ import {
   RACEBOX_SERVICE_UUID,
   RACEBOX_TX_UUID,
   RACEBOX_RX_UUID,
+  UBX_CLASS_RACEBOX,
+  RACEBOX_ID,
   bytesToHex,
 } from './RaceBoxProtocol.js';
 import { RaceBoxStreamDecoder } from './RaceBoxDecoder.js';
+import {
+  buildStatusQuery,
+  buildUnlock,
+  buildDownloadStart,
+  buildDownloadCancel,
+  buildEraseStart,
+  parseMemoryStatus,
+  parseExpectedCount,
+  parseStateChange,
+  parseAckTarget,
+  DEFAULT_SECURITY_CODE,
+} from './RaceBoxCommands.js';
 
 const MAX_DEVICES = 50;
 const MAX_RECENT_RECORDS = 120;
 const RATE_WINDOW_MS = 2000;
+const COMMAND_TIMEOUT_MS = 10000;
+const DOWNLOAD_TIMEOUT_MS = 15 * 60 * 1000;
+
+function isAckTarget(msg, commandId) {
+  if (!msg || !msg.payload) return false;
+  const target = parseAckTarget(msg.payload);
+  return !!target && target.cls === UBX_CLASS_RACEBOX && target.id === commandId;
+}
 
 /**
  * @typedef {Object} RaceBoxSnapshot
@@ -99,6 +121,18 @@ export class RaceBoxAdapter {
     this._destroyed = false;
     this._generation = 0;
     this._listeners = new Set();
+
+    // Memory / history download state.
+    /** @type {ReturnType<typeof parseMemoryStatus>|null} */
+    this._memory = null;
+    this._history = { phase: 'idle', expected: 0, received: 0, error: null };
+    /** @type {import('./RaceBoxTypes.js').RaceBoxRecord[]} */
+    this._historyRecords = [];
+    /** @type {{index: number, event: number}[]} */
+    this._historyEvents = [];
+    /** @type {{test: (m:any)=>boolean, resolve:(m:any)=>void, reject:(e:any)=>void, timer:any}[]} */
+    this._commandWaiters = [];
+
     this._snapshot = this._buildSnapshot();
   }
 
@@ -311,6 +345,221 @@ export class RaceBoxAdapter {
     this._emit();
   }
 
+  // ── Memory / history download ─────────────────────────────────────────────
+
+  /** Query 0xFF/0x22 memory status (recording flag, level, security, counts). */
+  async queryMemoryStatus() {
+    this._ensureConnected();
+    await this._ensureReceiving();
+    const waiter = this._waitForCommand((m) => m.kind === 'status', COMMAND_TIMEOUT_MS, 'estado de memoria');
+    await this._writeRx(buildStatusQuery());
+    const msg = await waiter;
+    this._memory = parseMemoryStatus(msg.payload);
+    this._emit();
+    return this._memory;
+  }
+
+  /**
+   * Download all stored sessions: unlock memory, trigger the download, collect
+   * the streamed history records and split them into sessions.
+   * Resolves with { sessions: [{ records }] , expected, received }.
+   * The caller is responsible for persisting the sessions.
+   */
+  async startHistoryDownload({ securityCode = DEFAULT_SECURITY_CODE, unlock = true } = {}) {
+    this._ensureConnected();
+    await this._ensureReceiving();
+    this._history = { phase: 'unlocking', expected: 0, received: 0, error: null };
+    this._historyRecords = [];
+    this._historyEvents = [];
+    this._emit();
+
+    try {
+      if (unlock) {
+        const unlockWaiter = this._waitForCommand(
+          (m) => (m.kind === 'ack' || m.kind === 'nack') && isAckTarget(m, RACEBOX_ID.MEM_UNLOCK),
+          COMMAND_TIMEOUT_MS,
+          'desbloqueo de memoria',
+        );
+        await this._writeRx(buildUnlock(securityCode));
+        const ack = await unlockWaiter;
+        if (ack.kind === 'nack') {
+          throw new BleError(
+            BleErrorCode.PROTOCOL_ERROR,
+            'La memoria rechazó el código de seguridad (¿es 123456?).',
+          );
+        }
+      }
+
+      this._history.phase = 'requested';
+      this._emit();
+
+      const countWaiter = this._waitForCommand(
+        (m) => m.kind === 'download' && m.payload && m.payload.length >= 4,
+        COMMAND_TIMEOUT_MS,
+        'recuento de registros',
+      );
+      const doneWaiter = this._waitForCommand(
+        (m) => (m.kind === 'ack' || m.kind === 'nack') && isAckTarget(m, RACEBOX_ID.DOWNLOAD),
+        DOWNLOAD_TIMEOUT_MS,
+        'fin de la descarga',
+      );
+      await this._writeRx(buildDownloadStart());
+
+      const countMsg = await countWaiter;
+      this._history.expected = parseExpectedCount(countMsg.payload) || 0;
+      this._history.phase = 'receiving';
+      this._emit();
+
+      const done = await doneWaiter;
+      if (done.kind === 'nack') {
+        throw new BleError(
+          BleErrorCode.PROTOCOL_ERROR,
+          'El dispositivo rechazó la descarga (memoria bloqueada u otra operación en curso).',
+        );
+      }
+
+      this._history.phase = 'done';
+      const sessions = this._buildSessions();
+      this._emit();
+      return { sessions, expected: this._history.expected, received: this._history.received };
+    } catch (err) {
+      const bleErr = normalizeBleError(err, BleErrorCode.PROTOCOL_ERROR);
+      this._history.phase = 'error';
+      this._history.error = bleErr.message;
+      this._emit();
+      throw bleErr;
+    }
+  }
+
+  /** Cancel an ongoing download (0xFF/0x23 with a 1-byte payload). */
+  async cancelHistoryDownload() {
+    if (!this._connectedDeviceId) return;
+    try {
+      await this._writeRx(buildDownloadCancel());
+    } catch (_) {
+      /* ignore */
+    }
+  }
+
+  /** Erase stored memory (0xFF/0x24). Irreversible; guarded in the UI. */
+  async eraseDeviceMemory() {
+    this._ensureConnected();
+    await this._ensureReceiving();
+    const waiter = this._waitForCommand(
+      (m) => (m.kind === 'ack' || m.kind === 'nack') && isAckTarget(m, RACEBOX_ID.ERASE),
+      5 * 60 * 1000,
+      'fin del borrado',
+    );
+    await this._writeRx(buildEraseStart());
+    const done = await waiter;
+    if (done.kind === 'nack') {
+      throw new BleError(BleErrorCode.PROTOCOL_ERROR, 'El dispositivo rechazó el borrado.');
+    }
+    return true;
+  }
+
+  _ensureConnected() {
+    if (!this._connectedDeviceId || !this._transport) {
+      throw new BleError(BleErrorCode.DISCONNECTED, 'Conecta primero con la RaceBox.');
+    }
+  }
+
+  async _ensureReceiving() {
+    if (this._receiving) return;
+    await this.startReceiving();
+    if (!this._receiving) {
+      throw new BleError(
+        BleErrorCode.SUBSCRIBE_FAILED,
+        'No se pudo activar la recepción de notificaciones.',
+      );
+    }
+  }
+
+  async _writeRx(bytes) {
+    this._ensureConnected();
+    await this._transport.write(
+      this._connectedDeviceId,
+      RACEBOX_SERVICE_UUID,
+      RACEBOX_RX_UUID,
+      bytes,
+    );
+  }
+
+  _waitForCommand(test, timeoutMs, label) {
+    return new Promise((resolve, reject) => {
+      const waiter = { test, resolve, reject, timer: null };
+      waiter.timer = setTimeout(() => {
+        this._commandWaiters = this._commandWaiters.filter((w) => w !== waiter);
+        reject(
+          new BleError(BleErrorCode.PROTOCOL_ERROR, `Tiempo de espera agotado: ${label}.`),
+        );
+      }, timeoutMs);
+      this._commandWaiters.push(waiter);
+    });
+  }
+
+  _dispatchCommand(msg) {
+    const index = this._commandWaiters.findIndex((w) => {
+      try {
+        return w.test(msg);
+      } catch (_) {
+        return false;
+      }
+    });
+    if (index < 0) return;
+    const [waiter] = this._commandWaiters.splice(index, 1);
+    clearTimeout(waiter.timer);
+    waiter.resolve(msg);
+  }
+
+  _clearCommandWaiters(reason) {
+    const waiters = this._commandWaiters;
+    this._commandWaiters = [];
+    for (const w of waiters) {
+      clearTimeout(w.timer);
+      try {
+        w.reject(reason);
+      } catch (_) {
+        /* ignore */
+      }
+    }
+  }
+
+  /** Split the downloaded records into sessions using 0xFF/0x26 boundaries. */
+  _buildSessions() {
+    const records = this._historyRecords;
+    if (!records.length) return [];
+    const events = this._historyEvents;
+    if (!events.length) return [{ records }];
+
+    const sessions = [];
+    let current = [];
+    let e = 0;
+    const flush = () => {
+      if (current.length) {
+        sessions.push({ records: current });
+        current = [];
+      }
+    };
+    const applyEvent = (ev) => {
+      // 1 = recording start, 0 = stop, 2 = pause -> all close the current session
+      if (ev === 1 || ev === 0 || ev === 2) flush();
+    };
+    for (let i = 0; i < records.length; i++) {
+      while (e < events.length && events[e].index <= i) {
+        applyEvent(events[e].event);
+        e++;
+      }
+      current.push(records[i]);
+    }
+    while (e < events.length) {
+      applyEvent(events[e].event);
+      e++;
+    }
+    flush();
+    return sessions;
+  }
+
   async disconnect() {
     this._manualDisconnect = true;
     const id = this._connectedDeviceId;
@@ -334,6 +583,8 @@ export class RaceBoxAdapter {
     const generation = (this._generation += 1);
     this._destroyed = true;
     this._manualDisconnect = true;
+    this._clearCommandWaiters(new BleError(BleErrorCode.DISCONNECTED, 'Adaptador destruido.'));
+    this._history.phase = 'idle';
     const transport = this._transport;
     this._transport = null;
     try {
@@ -386,6 +637,8 @@ export class RaceBoxAdapter {
     if (deviceId && this._connectedDeviceId && deviceId !== this._connectedDeviceId) {
       return;
     }
+    this._clearCommandWaiters(new BleError(BleErrorCode.DISCONNECTED, 'Dispositivo desconectado.'));
+    this._history.phase = 'idle';
     this._receiving = false;
     this._connectedDeviceId = null;
     this._connectedDeviceName = null;
@@ -404,13 +657,21 @@ export class RaceBoxAdapter {
 
     const now = Date.now();
     for (const msg of messages) {
-      if (!msg.record) continue;
-      this._packets += 1;
-      this._lastPacketAt = now;
-      this._latest = msg.record;
-      this._recent.push(msg.record);
-      if (this._recent.length > MAX_RECENT_RECORDS) this._recent.shift();
-      this._recordTimes.push(now);
+      if (msg.kind === 'live') {
+        this._onLiveRecord(msg.record, now);
+      } else if (msg.kind === 'history') {
+        if (this._historyRecords.length === 0) this._history.startedAt = now;
+        this._historyRecords.push(msg.record);
+        this._history.received = this._historyRecords.length;
+      } else if (msg.kind === 'stateChange') {
+        const ev = parseStateChange(msg.payload);
+        this._historyEvents.push({
+          index: this._historyRecords.length,
+          event: ev ? ev.state : 0,
+        });
+      } else {
+        this._dispatchCommand(msg);
+      }
     }
     // Sliding window for an approximate update rate.
     const cutoff = now - RATE_WINDOW_MS;
@@ -418,6 +679,16 @@ export class RaceBoxAdapter {
       this._recordTimes.shift();
     }
     this._emit();
+  }
+
+  _onLiveRecord(record, now) {
+    if (!record) return;
+    this._packets += 1;
+    this._lastPacketAt = now;
+    this._latest = record;
+    this._recent.push(record);
+    if (this._recent.length > MAX_RECENT_RECORDS) this._recent.shift();
+    this._recordTimes.push(now);
   }
 
   _resetMetrics() {
@@ -489,6 +760,13 @@ export class RaceBoxAdapter {
         ? bytesToHex(this._decoder.lastFrame)
         : null,
       rxCharacteristic: RACEBOX_RX_UUID,
+      memory: this._memory,
+      history: {
+        phase: this._history.phase,
+        expected: this._history.expected,
+        received: this._history.received,
+        error: this._history.error,
+      },
     };
   }
 

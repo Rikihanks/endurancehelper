@@ -5,7 +5,6 @@ import { canTransition, BleConnectionState, BleError, BleErrorCode } from '../sr
 import { BluetoothTransport, UnavailableBleTransport } from '../src/services/bluetooth/BluetoothTransport.js';
 import { RaceBoxAdapter } from '../src/services/devices/racebox/RaceBoxAdapter.js';
 import { encodeFrame, UBX_CLASS_RACEBOX, RACEBOX_ID, RACEBOX_SERVICE_UUID, RACEBOX_TX_UUID } from '../src/services/devices/racebox/RaceBoxProtocol.js';
-
 function payload() {
   const buf = new ArrayBuffer(80);
   const v = new DataView(buf);
@@ -118,6 +117,17 @@ class MockTransport extends BluetoothTransport {
 
   async stopNotifications() {
     this.unsubCalls += 1;
+  }
+
+  async write(deviceId, service, characteristic, data) {
+    this.writeCalls = (this.writeCalls || 0) + 1;
+    this.lastWrite = data;
+    if (this.onWrite) this.onWrite(data);
+  }
+
+  emitFrame(cls, id, payloadBytes) {
+    const frame = encodeFrame(cls, id, payloadBytes || []);
+    if (this.notifyCb) this.notifyCb(frame);
   }
 
   async disconnect() {
@@ -304,4 +314,128 @@ test('re-initialization after destroy works (React StrictMode remount)', async (
   assert.equal(snap.state, BleConnectionState.IDLE);
   assert.equal(snap.devices.length, 1);
   assert.ok(created >= 2, 'a fresh transport is created after destroy');
+});
+
+const STATUS_PAYLOAD = Uint8Array.from([1, 42, 0x03, 0, 0x40, 0xe2, 0x01, 0x00, 0x00, 0x00, 0x03, 0x00]);
+
+function historyFrame(record) {
+  return encodeFrame(UBX_CLASS_RACEBOX, RACEBOX_ID.HISTORY, record);
+}
+
+async function connectedAdapter(onWrite) {
+  const transport = new MockTransport();
+  transport.onWrite = onWrite;
+  const adapter = makeAdapter(transport);
+  await adapter.initialize();
+  await adapter.startScan();
+  await adapter.connect('dev-1');
+  await adapter.startReceiving();
+  return { adapter, transport };
+}
+
+test('queryMemoryStatus parses the 0xFF/0x22 response', async () => {
+  const transport = new MockTransport();
+  transport.onWrite = (bytes) => {
+    if (bytes[3] === RACEBOX_ID.REC_STATUS) {
+      transport.emitFrame(0xff, 0x22, STATUS_PAYLOAD);
+    }
+  };
+  const adapter = makeAdapter(transport);
+  await adapter.initialize();
+  await adapter.startScan();
+  await adapter.connect('dev-1');
+  await adapter.startReceiving();
+
+  const status = await adapter.queryMemoryStatus();
+  assert.equal(status.recording, true);
+  assert.equal(status.memoryPercent, 42);
+  assert.equal(status.recordCount, 123456);
+  assert.equal(status.memorySize, 196608);
+  assert.deepEqual(adapter.getSnapshot().memory, status);
+});
+
+test('startHistoryDownload unlocks, downloads and splits sessions', async () => {
+  const records = [
+    Uint8Array.from(payload()),
+    Uint8Array.from(payload()),
+    Uint8Array.from(payload()),
+    Uint8Array.from(payload()),
+    Uint8Array.from(payload()),
+  ];
+
+  const transport = new MockTransport();
+  let downloaded = false;
+  transport.onWrite = (bytes) => {
+    const id = bytes[3];
+    if (id === RACEBOX_ID.MEM_UNLOCK) {
+      transport.emitFrame(0xff, 0x02, [0xff, RACEBOX_ID.MEM_UNLOCK]); // unlock ACK
+    } else if (id === RACEBOX_ID.DOWNLOAD && bytes.length === 8) {
+      transport.emitFrame(0xff, 0x23, [0x05, 0x00, 0x00, 0x00]); // expected = 5
+      if (!downloaded) {
+        downloaded = true;
+        transport.emitFrame(0xff, 0x26, [1]); // session 1 start
+        transport.emitFrame(0xff, 0x21, records[0]);
+        transport.emitFrame(0xff, 0x21, records[1]);
+        transport.emitFrame(0xff, 0x26, [0]); // session 1 stop
+        transport.emitFrame(0xff, 0x26, [1]); // session 2 start
+        transport.emitFrame(0xff, 0x21, records[2]);
+        transport.emitFrame(0xff, 0x21, records[3]);
+        transport.emitFrame(0xff, 0x26, [0]); // session 2 stop
+        transport.emitFrame(0xff, 0x02, [0xff, RACEBOX_ID.DOWNLOAD]); // download complete
+      }
+    }
+  };
+
+  const adapter = makeAdapter(transport);
+  await adapter.initialize();
+  await adapter.startScan();
+  await adapter.connect('dev-1');
+  await adapter.startReceiving();
+
+  const result = await adapter.startHistoryDownload({ securityCode: 123456 });
+  assert.equal(result.expected, 5);
+  assert.equal(result.received, 4);
+  assert.equal(result.sessions.length, 2, `sessions=${result.sessions.length}`);
+  assert.equal(result.sessions[0].records.length, 2);
+  assert.equal(result.sessions[1].records.length, 2);
+  assert.equal(adapter.getSnapshot().history.phase, 'done');
+  assert.equal(adapter.getSnapshot().history.received, 4);
+});
+
+test('startHistoryDownload fails cleanly when the unlock is NACKed', async () => {
+  const transport = new MockTransport();
+  transport.onWrite = (bytes) => {
+    if (bytes[3] === RACEBOX_ID.MEM_UNLOCK) {
+      transport.emitFrame(0xff, 0x03, [0xff, RACEBOX_ID.MEM_UNLOCK]); // NACK
+    }
+  };
+  const adapter = makeAdapter(transport);
+  await adapter.initialize();
+  await adapter.startScan();
+  await adapter.connect('dev-1');
+  await adapter.startReceiving();
+
+  await assert.rejects(
+    () => adapter.startHistoryDownload({ securityCode: 999999 }),
+    /código de seguridad/i,
+  );
+  assert.equal(adapter.getSnapshot().history.phase, 'error');
+});
+
+test('eraseDeviceMemory resolves on the erase ACK', async () => {
+  const transport = new MockTransport();
+  transport.onWrite = (bytes) => {
+    if (bytes[3] === RACEBOX_ID.ERASE && bytes.length === 8) {
+      transport.emitFrame(0xff, 0x24, [50]); // progress
+      transport.emitFrame(0xff, 0x24, [100]);
+      transport.emitFrame(0xff, 0x02, [0xff, RACEBOX_ID.ERASE]);
+    }
+  };
+  const adapter = makeAdapter(transport);
+  await adapter.initialize();
+  await adapter.startScan();
+  await adapter.connect('dev-1');
+  await adapter.startReceiving();
+
+  assert.equal(await adapter.eraseDeviceMemory(), true);
 });

@@ -115,8 +115,22 @@ lat 42.6719035 / lon 23.2887238 / alt 625.761 m / 11 sat / batería 89 % / IMU -
 ### 2.5. Frecuencia y flujo
 - Tasas: **1 / 5 / 10 / 25 Hz** (25 Hz por defecto). Medido en real: **25.5 Hz**.
 - LIVE se emite al suscribirse a TX. No requiere comando.
-- History: `0xFF/0x23` (DOWNLOAD) → registros `0xFF/0x21` (mismo payload). Requiere desbloqueo de
-  memoria (`0xFF/0x30`, código por defecto `123456`). Fuera del alcance de la PoC.
+
+### 2.6. Memoria y grabación standalone (implementado en la pestaña «Sesiones»)
+- **Estado** `0xFF/0x22` (payload vacío) → respuesta de 12 B: `[0]` grabando, `[1]` % de memoria,
+  `[2]` bitmask de seguridad (bit0 habilitada, bit1 desbloqueada), `[4..7]` registros guardados,
+  `[8..11]` capacidad total en registros (hasta **196 608**, ~16,5 MB).
+- **Desbloqueo** `0xFF/0x30` + 4 B LE = código (por defecto **123456**). El bloqueo **se resetea
+  en cada conexión**; hay que desbloquear antes de cualquier comando de memoria.
+- **Descarga** `0xFF/0x23` (payload vacío) → respuesta `0xFF/0x23` con 4 B = registros esperados;
+  después el dispositivo emite `0xFF/0x21` (registros, payload idéntico al LIVE) y `0xFF/0x26`
+  (fronteras de sesión), y termina con ACK `0xFF/0x02` + `[FF 23]`. Durante la descarga
+  **desactiva el LIVE**. Cancelar = `0xFF/0x23` con 1 byte.
+- **Borrado** `0xFF/0x24` (irreversible; notifica progreso con payload de 1 byte 0–100; ACK final).
+- **Grabar** `0xFF/0x25` (12 B): `[0]` enable, `[1]` tasa, `[2]` flags (bit0 wait-fix, bit1
+  estacionario, bit2 sin-fix, bit3 auto-apagado), `[4..5]` umbral estacionario mm/s, `[6..7]`,
+  `[8..9]`, `[10..11]` intervalos (s).
+- NACK si: no hay standalone, memoria bloqueada u otra operación en curso.
 
 ## 3. Datos observados experimentalmente (hardware real)
 

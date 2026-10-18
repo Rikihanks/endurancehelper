@@ -53,9 +53,9 @@
 /**
  * Typed decoded message emitted by the decoder.
  * @typedef {Object} DecodedMessage
- * @property {'live'|'history'|'ack'|'nack'|'status'|'unknown'} kind
+ * @property {'live'|'history'|'ack'|'nack'|'status'|'download'|'erase'|'recConfig'|'stateChange'|'unknown'} kind
  * @property {number} id
- * @property {number} [recordIndex]  index within a history download
+ * @property {Uint8Array} [payload]  Raw payload for command responses
  * @property {RaceBoxRecord} [record]
  */
 

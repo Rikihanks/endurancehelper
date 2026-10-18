@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState, useSyncExternalStore } from 'react';
 import { RaceBoxAdapter } from '../../services/devices/racebox/RaceBoxAdapter.js';
 import RaceBoxStatus from './RaceBoxStatus.jsx';
 import RaceBoxDataPanel from './RaceBoxDataPanel.jsx';
+import RaceBoxSessionsView from './sessions/RaceBoxSessionsView.jsx';
 import './racebox-poc.css';
 
 // Isolated diagnostic screen. It never touches race state, the backend or the
@@ -16,6 +17,7 @@ export default function RaceBoxPocPage() {
   );
   const [now, setNow] = useState(() => Date.now());
   const [busy, setBusy] = useState(null);
+  const [tab, setTab] = useState('live');
 
   // Initialize BLE on mount and release everything on unmount. The adapter
   // tolerates StrictMode's mount/unmount/remount cycle.
@@ -54,19 +56,42 @@ export default function RaceBoxPocPage() {
         <a className="rb-back" href="/">Volver a InLap</a>
       </header>
 
-      <RaceBoxStatus
-        snapshot={snapshot}
-        busy={busy}
-        onRetryInit={() => run('init', () => adapter.initialize())}
-        onScan={() => run('scan', () => adapter.startScan())}
-        onStopScan={() => run('stopScan', () => adapter.stopScan())}
-        onConnect={(id) => run(`connect:${id}`, () => adapter.connect(id))}
-        onDisconnect={() => run('disconnect', () => adapter.disconnect())}
-        onStartReceiving={() => run('startRx', () => adapter.startReceiving())}
-        onStopReceiving={() => run('stopRx', () => adapter.stopReceiving())}
-      />
+      <nav className="rb-tabs">
+        <button
+          type="button"
+          className={`rb-tab${tab === 'live' ? ' rb-tab-active' : ''}`}
+          onClick={() => setTab('live')}
+        >
+          En vivo
+        </button>
+        <button
+          type="button"
+          className={`rb-tab${tab === 'sessions' ? ' rb-tab-active' : ''}`}
+          onClick={() => setTab('sessions')}
+        >
+          Sesiones
+        </button>
+      </nav>
 
-      <RaceBoxDataPanel snapshot={snapshot} now={now} />
+      {tab === 'live' ? (
+        <>
+          <RaceBoxStatus
+            snapshot={snapshot}
+            busy={busy}
+            onRetryInit={() => run('init', () => adapter.initialize())}
+            onScan={() => run('scan', () => adapter.startScan())}
+            onStopScan={() => run('stopScan', () => adapter.stopScan())}
+            onConnect={(id) => run(`connect:${id}`, () => adapter.connect(id))}
+            onDisconnect={() => run('disconnect', () => adapter.disconnect())}
+            onStartReceiving={() => run('startRx', () => adapter.startReceiving())}
+            onStopReceiving={() => run('stopRx', () => adapter.stopReceiving())}
+          />
+
+          <RaceBoxDataPanel snapshot={snapshot} now={now} />
+        </>
+      ) : (
+        <RaceBoxSessionsView adapter={adapter} snapshot={snapshot} />
+      )}
 
       <footer className="rb-footer">
         Protocolo basado en RaceBox BLE rev 8 (cliente de referencia lgnap/RaceBoxMicroBleClient).
