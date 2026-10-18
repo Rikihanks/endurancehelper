@@ -14,6 +14,7 @@ import { exportTextFile, pluginAvailable } from '../../../services/platform/expo
 import { isNativePlatform, runtimePlatform } from '../../../services/bluetooth/index.js';
 import { buildDemoSession } from '../../../services/devices/racebox/demoSession.js';
 import { computeTrackLaps } from '../../../services/devices/racebox/RaceBoxTrack.js';
+import { exportAll, importAll, buildBackup } from '../../../services/storage/backup.js';
 
 function sessionName(records, index) {
   const stats = { startDate: null };
@@ -159,6 +160,29 @@ export default function RaceBoxSessionsView({ adapter, snapshot, activeTrackId }
       await refresh();
       setMessage('Sesión de demostración creada. Pulsa «Ver» para ver trazada, vueltas y gráficas.');
     });
+
+  const onExportAll = () =>
+    run('exportAll', async () => {
+      const { backup, counts } = await exportAll();
+      const name = `inlap-racebox-${new Date().toISOString().slice(0, 10)}.json`;
+      const res = await exportTextFile(name, JSON.stringify(backup), 'application/json');
+      setMessage(
+        `Copia completa: ${counts.sessions} sesiones y ${counts.tracks} circuitos → ${res.filename}.` +
+          (res.via === 'share' ? ' Se abrió el menú para compartirla.' : ''),
+      );
+    });
+
+  const onImportFile = (event) => {
+    const file = event.target.files && event.target.files[0];
+    event.target.value = '';
+    if (!file) return;
+    run('import', async () => {
+      const text = await file.text();
+      const res = await importAll(text);
+      await refresh();
+      setMessage(`Importado: ${res.sessions} sesiones y ${res.tracks} circuitos.`);
+    });
+  };
 
   const openSession = (session) => {
     if (!session || !session.id) {
@@ -340,6 +364,9 @@ export default function RaceBoxSessionsView({ adapter, snapshot, activeTrackId }
                       <button type="button" className="rb-btn" disabled={!!busy} onClick={() => onExport(s, 'csv')}>
                         CSV
                       </button>{' '}
+                      <button type="button" className="rb-btn" disabled={!!busy} onClick={() => onExport(s, 'json')}>
+                        JSON
+                      </button>{' '}
                       <button type="button" className="rb-btn rb-btn-danger" disabled={!!busy} onClick={() => onDelete(s.id)}>
                         Borrar
                       </button>
@@ -351,6 +378,31 @@ export default function RaceBoxSessionsView({ adapter, snapshot, activeTrackId }
           </div>
         )}
       </section>
+
+      <details className="rb-details" open>
+        <summary>Compartir datos (copia completa)</summary>
+        <p className="rb-hint">
+          Un solo archivo JSON con <b>todas las sesiones</b> (con sus registros) y <b>todos los
+          circuitos</b> (con meta, sectores y trazada). Sirve para pasar la prueba de concepto de un
+          dispositivo a otro; al importar se mezcla por identificador, así que repetir la importación
+          no duplica nada.
+        </p>
+        <div className="rb-toolbar">
+          <button type="button" className="rb-btn rb-btn-primary" onClick={onExportAll} disabled={!!busy}>
+            Exportar todo (JSON)
+          </button>
+          <label className="rb-field" style={{ minWidth: 240 }}>
+            <span className="rb-field-label">Importar copia (JSON)</span>
+            <input
+              type="file"
+              accept=".json,application/json"
+              onChange={onImportFile}
+              disabled={!!busy}
+            />
+          </label>
+        </div>
+        {message && <p className="rb-note">{message}</p>}
+      </details>
 
       <details className="rb-details">
         <summary>Diagnóstico (si algo no funciona)</summary>
@@ -380,6 +432,20 @@ export default function RaceBoxSessionsView({ adapter, snapshot, activeTrackId }
       const full = await SessionStore.get(meta.id);
       if (!full) {
         setError('Sesión no encontrada.');
+        return;
+      }
+      if (format === 'json') {
+        const res = await exportTextFile(
+          `${meta.name}.json`,
+          JSON.stringify(buildBackup({ sessions: [full], tracks: [] })),
+          'application/json',
+        );
+        setError(null);
+        setMessage(
+          res.via === 'share'
+            ? `${res.filename}: se abrió el menú para compartirlo.`
+            : `Descargando ${res.filename}…`,
+        );
         return;
       }
       const text =

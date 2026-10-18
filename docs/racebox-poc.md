@@ -155,7 +155,13 @@ oficial:
 - **Vueltas** con tiempo, delta total, distancia, velocidad máxima y G máxima; mejor vuelta
   resaltada.
 
-**Exportar:** GPX (trazada) y CSV (telemetría) desde la lista de sesiones.
+**Exportar:** GPX (trazada), CSV (telemetría) y **JSON** (la sesión completa, para compartirla).
+
+**Compartir la prueba de concepto entre dispositivos:** en la pestaña Sesiones, arriba del todo,
+**«Compartir datos»** crea **un solo JSON** con **todas las sesiones** (con sus registros) y **todos
+los circuitos** (meta, sectores y trazada). En iOS abre la hoja de compartir (Archivos, correo,
+WhatsApp…) y en otro dispositivo se importa con el mismo panel. La importación **mezcla por
+identificador**, así que repetirla no duplica nada y el circuito con sus sectores se propaga.
 
 **Borrar memoria del dispositivo:** botón **Borrar memoria** (irreversible, pide
 confirmación). Borra también es compatible con la app oficial, así que sincroniza antes.
