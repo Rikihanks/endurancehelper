@@ -5,6 +5,7 @@ import {
   parseGpx,
   parseKml,
   parseTrackFile,
+  parseCoordinateList,
   downsamplePoints,
 } from '../src/utils/trackFiles.js';
 
@@ -64,6 +65,23 @@ test('parseTrackFile detects the format and downsamples', () => {
 test('parseTrackFile fails clearly on unusable input', () => {
   assert.throws(() => parseTrackFile(''), /vacío/i);
   assert.throws(() => parseTrackFile('<html><body>nada</body></html>'), /No se encontraron puntos/i);
+});
+
+test('parseCoordinateList reads pasted Google Maps style coordinates', () => {
+  const text = `28.4668, -16.3485
+28.4671,-16.3489
+28.4672 -16.3479
+
+basura
+  28.4660,  -16.3460  
+91, 200`;
+  const points = parseCoordinateList(text);
+  assert.equal(points.length, 4, JSON.stringify(points));
+  assert.ok(Math.abs(points[0].lat - 28.4668) < 1e-9);
+  assert.ok(Math.abs(points[0].lon + 16.3485) < 1e-9);
+  assert.ok(Math.abs(points[2].lat - 28.4672) < 1e-9, 'space separated');
+  assert.equal(parseCoordinateList('').length, 0);
+  assert.equal(parseCoordinateList(null).length, 0);
 });
 
 test('downsamplePoints returns a copy and bounds the length', () => {

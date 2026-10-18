@@ -3,7 +3,7 @@ import { TrackStore } from '../../../services/storage/TrackStore.js';
 import { SessionStore } from '../../../services/storage/SessionStore.js';
 import { makeTrap, learnStartFinish } from '../../../services/devices/racebox/RaceBoxTrack.js';
 import { downsample } from '../../../services/devices/racebox/RaceBoxAnalysis.js';
-import { parseTrackFile } from '../../../utils/trackFiles.js';
+import { parseTrackFile, parseCoordinateList, downsamplePoints } from '../../../utils/trackFiles.js';
 import { BUILTIN_TRACKS } from '../../../data/builtinTracks.js';
 import TrackEditor from './TrackEditor.jsx';
 
@@ -31,6 +31,7 @@ export default function TracksView({ adapter, snapshot, activeTrackId, onSelectT
   const [name, setName] = useState('');
   const [placement, setPlacement] = useState('none');
   const [centerSessionId, setCenterSessionId] = useState('');
+  const [pasted, setPasted] = useState('');
 
   const connected = !!snapshot.connectedDeviceId;
   const latest = snapshot.latest;
@@ -182,6 +183,19 @@ export default function TracksView({ adapter, snapshot, activeTrackId, onSelectT
       await TrackStore.save({ ...activeTrack, centerline: sessionCenterline(session.records) });
       await refresh();
       setMessage('Trazada añadida: ya puedes editar meta y splits en el mapa.');
+    });
+
+  const onImportPasted = () =>
+    run('paste', async () => {
+      if (!activeTrack) throw new Error('Selecciona un circuito activo primero.');
+      const points = parseCoordinateList(pasted);
+      if (points.length < 3) {
+        throw new Error('Pega al menos 3 líneas con "latitud, longitud" (una por punto del trazado).');
+      }
+      await TrackStore.save({ ...activeTrack, centerline: downsamplePoints(points, 800) });
+      setPasted('');
+      await refresh();
+      setMessage(`Trazada creada con ${points.length} puntos. Ya puedes colocar meta y splits en el mapa.`);
     });
 
   const onImportFile = (event) => {
@@ -402,9 +416,26 @@ export default function TracksView({ adapter, snapshot, activeTrackId, onSelectT
               </>
             )}
           </div>
+          <div className="rb-toolbar" style={{ marginTop: 10, alignItems: 'flex-end' }}>
+            <label className="rb-field" style={{ flex: 1, minWidth: 260 }}>
+              <span className="rb-field-label">…o pegar coordenadas (una por línea: latitud, longitud)</span>
+              <textarea
+                value={pasted}
+                onChange={(e) => setPasted(e.target.value)}
+                rows={4}
+                placeholder={'28.4668, -16.3485\n28.4671, -16.3489\n…'}
+                disabled={!!busy}
+                style={{ fontFamily: 'var(--font-mono)', width: '100%', resize: 'vertical' }}
+              />
+            </label>
+            <button type="button" className="rb-btn rb-btn-primary" onClick={onImportPasted} disabled={!!busy || !pasted.trim()}>
+              Usar coordenadas
+            </button>
+          </div>
           <p className="rb-hint">
-            Consejo: dibuja la trazada sobre la ortofoto en Google Earth (Añadir → Ruta, ~20–40 puntos
-            siguiendo la pista), exporta KML y súbelo aquí. Luego coloca la meta tocando el mapa.
+            Consejo: en Google Maps, clic derecho en cada punto del circuito → copiar «28.4668, -16.3485»
+            y pégalos aquí (una línea por punto, ~15–30 para que quede bien; en el bucle con árboles
+            ve punteando los que puedas). O dibuja la ruta en Google Earth y exporta KML.
           </p>
         </section>
       )}

@@ -116,7 +116,22 @@ RaceChrono. Es replicable y legal con atribución.
 - La heurística actual se conserva **solo como sugerencia inicial** al aprender un circuito; una vez
   hay trap, el cronometraje es determinista.
 
-## 6. Próximos pasos para validar
+## 6. Caso concreto: Karting Canarias (La Esperanza)
+
+- **OSM no sirve para este circuito**: en el área del recinto OSM solo tiene un `highway=raceway`
+  parcial (way 78336797) y el polígono del recinto mide ~182×58 m, muy inferior al trazado real
+  (circuito largo con una S central y un bucle inferior-derecho que **sí es parte de la pista**,
+  aunque la ortofoto lo tapa con árboles).
+- **Vías para tenerlo exacto**, en orden de fiabilidad:
+  1. **Grabar una vuelta** con el RaceBox (Cronometraje → Iniciar grabación, funciona sin circuito) y
+     crear el circuito desde esa sesión: es la trazada real, sin dibujar nada.
+  2. **Trazar sobre la ortofoto en Google Earth** y exportar KML → importar en el editor.
+  3. **Pegar coordenadas**: clic derecho en Google Maps en cada punto del circuito (~15–30) y
+     pegarlas en el editor.
+- Después, la meta y los sectores se colocan **tocando el mapa** en el editor (el sentido se toma de
+  la trazada, no del GPS parado).
+
+## 7. Próximos pasos para validar
 
 1. Aprender un circuito real (karting de Tenerife) desde una sesión descargada y comprobar que las
    vueltas cuadran con las de la app oficial.

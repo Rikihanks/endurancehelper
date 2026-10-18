@@ -52,6 +52,27 @@ export function parseKml(text) {
 }
 
 /**
+ * Parse a pasted list of coordinates, one per line: "lat, lon" (also accepts
+ * space/semicolon separators). Handy for coordinates copied from Google Maps.
+ * Decimal degrees only (not DMS).
+ */
+export function parseCoordinateList(text) {
+  const points = [];
+  for (const rawLine of String(text || '').split(/\r?\n/)) {
+    const line = rawLine.trim();
+    if (!line) continue;
+    const match = line.match(/^(-?\d+(?:\.\d+)?)\s*[,;\s]\s*(-?\d+(?:\.\d+)?)/);
+    if (!match) continue;
+    const lat = num(match[1]);
+    const lon = num(match[2]);
+    if (lat === null || lon === null) continue;
+    if (Math.abs(lat) > 90 || Math.abs(lon) > 180) continue;
+    points.push({ lat, lon });
+  }
+  return points;
+}
+
+/**
  * Detect the format and parse. Returns { format, points } or throws with a
  * clear message.
  */
