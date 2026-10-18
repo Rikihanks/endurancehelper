@@ -1,0 +1,72 @@
+name: iOS build (unsigned IPA, no Mac required)
+
+# Builds the Capacitor iOS app on a cloud macOS runner and uploads an unsigned
+# IPA. Install it on a real iPhone from Windows with Sideloadly/AltStore (free
+# Apple ID, 7-day signing) or sign/upload to TestFlight with a paid account.
+#
+# Manual trigger only, so it does not spend macOS minutes on every push.
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build-ios:
+    runs-on: macos-14
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+
+      - name: Install JS dependencies
+        run: npm ci
+
+      - name: Build web app
+        run: npm run build --workspace frontend
+
+      - name: Capacitor sync (iOS)
+        working-directory: frontend
+        run: npx cap sync ios
+
+      - name: CocoaPods install
+        working-directory: frontend/ios/App
+        run: pod install
+
+      - name: Archive (unsigned)
+        working-directory: frontend/ios/App
+        run: |
+          xcodebuild \
+            -workspace App.xcworkspace \
+            -scheme App \
+            -configuration Release \
+            -sdk iphoneos \
+            -destination 'generic/platform=iOS' \
+            -archivePath "$RUNNER_TEMP/App.xcarchive" \
+            CODE_SIGN_IDENTITY="" \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGNING_ALLOWED=NO \
+            archive
+
+      - name: Package unsigned IPA
+        run: |
+          mkdir -p "$RUNNER_TEMP/Payload"
+          cp -R "$RUNNER_TEMP/App.xcarchive/Products/Applications/App.app" "$RUNNER_TEMP/Payload/App.app"
+          cd "$RUNNER_TEMP"
+          /usr/bin/zip -qry "InLap-unsigned.ipa" Payload
+          ls -lh "InLap-unsigned.ipa"
+
+      - name: Upload IPA artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: InLap-unsigned-ipa
+          path: ${{ runner.temp }}/InLap-unsigned.ipa
+          if-no-files-found: error
+
+      - name: Upload xcarchive (for debugging / signing elsewhere)
+        uses: actions/upload-artifact@v4
+        with:
+          name: InLap-xcarchive
+          path: ${{ runner.temp }}/App.xcarchive
