@@ -3,6 +3,7 @@ import { TrackStore } from '../../../services/storage/TrackStore.js';
 import { SessionStore } from '../../../services/storage/SessionStore.js';
 import { makeTrap, learnStartFinish } from '../../../services/devices/racebox/RaceBoxTrack.js';
 import { downsample } from '../../../services/devices/racebox/RaceBoxAnalysis.js';
+import { parseTrackFile } from '../../../utils/trackFiles.js';
 import { BUILTIN_TRACKS } from '../../../data/builtinTracks.js';
 import TrackEditor from './TrackEditor.jsx';
 
@@ -183,6 +184,22 @@ export default function TracksView({ adapter, snapshot, activeTrackId, onSelectT
       setMessage('Trazada añadida: ya puedes editar meta y splits en el mapa.');
     });
 
+  const onImportFile = (event) => {
+    const file = event.target.files && event.target.files[0];
+    event.target.value = '';
+    if (!file) return;
+    run('import', async () => {
+      if (!activeTrack) throw new Error('Selecciona un circuito activo primero.');
+      const text = await file.text();
+      const { format, points, total } = parseTrackFile(text);
+      await TrackStore.save({ ...activeTrack, centerline: points });
+      await refresh();
+      setMessage(
+        `Trazada importada (${format}, ${points.length} de ${total} puntos). Ya puedes colocar meta y splits en el mapa.`,
+      );
+    });
+  };
+
   const invertStartFinish = () =>
     run('invert', async () => {
       if (!activeTrack) throw new Error('Selecciona un circuito activo primero.');
@@ -356,24 +373,39 @@ export default function TracksView({ adapter, snapshot, activeTrackId, onSelectT
             </div>
           )}
 
-          {!activeTrack.centerline && sessions.length > 0 && (
-            <div className="rb-toolbar" style={{ marginTop: 10 }}>
-              <label className="rb-field" style={{ minWidth: 220 }}>
-                <span className="rb-field-label">Añadir trazada desde una sesión grabada</span>
-                <select value={centerSessionId} onChange={(e) => setCenterSessionId(e.target.value)} disabled={!!busy}>
-                  <option value="">Elige una sesión…</option>
-                  {sessions.slice(0, 15).map((s) => (
-                    <option key={s.id} value={s.id}>
-                      {s.name}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <button type="button" className="rb-btn" onClick={attachCenterline} disabled={!!busy || !centerSessionId}>
-                Usar trazada
-              </button>
-            </div>
-          )}
+          <div className="rb-toolbar" style={{ marginTop: 10 }}>
+            <label className="rb-field" style={{ minWidth: 260 }}>
+              <span className="rb-field-label">Importar trazada (GPX o KML)</span>
+              <input
+                type="file"
+                accept=".gpx,.kml,application/gpx+xml,application/vnd.google-earth.kml+xml,text/xml"
+                onChange={onImportFile}
+                disabled={!!busy}
+              />
+            </label>
+            {sessions.length > 0 && (
+              <>
+                <label className="rb-field" style={{ minWidth: 220 }}>
+                  <span className="rb-field-label">…o usar la trazada de una sesión</span>
+                  <select value={centerSessionId} onChange={(e) => setCenterSessionId(e.target.value)} disabled={!!busy}>
+                    <option value="">Elige una sesión…</option>
+                    {sessions.slice(0, 15).map((s) => (
+                      <option key={s.id} value={s.id}>
+                        {s.name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <button type="button" className="rb-btn" onClick={attachCenterline} disabled={!!busy || !centerSessionId}>
+                  Usar trazada
+                </button>
+              </>
+            )}
+          </div>
+          <p className="rb-hint">
+            Consejo: dibuja la trazada sobre la ortofoto en Google Earth (Añadir → Ruta, ~20–40 puntos
+            siguiendo la pista), exporta KML y súbelo aquí. Luego coloca la meta tocando el mapa.
+          </p>
         </section>
       )}
 
