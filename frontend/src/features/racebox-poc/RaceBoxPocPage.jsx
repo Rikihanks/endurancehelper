@@ -53,7 +53,7 @@ export default function RaceBoxPocPage() {
             Pantalla de diagnóstico aislada. No modifica la sesión de carrera ni el backend.
           </p>
         </div>
-        <a className="rb-back" href="/">Volver a InLap</a>
+        <a className="rb-back" href="#home">Volver a InLap</a>
       </header>
 
       <nav className="rb-tabs">
