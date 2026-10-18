@@ -133,6 +133,9 @@ RaceChrono. Es replicable y legal con atribución.
      pegarlas en el editor.
 - Después, la meta y los sectores se colocan **tocando el mapa** en el editor (el sentido se toma de
   la trazada, no del GPS parado).
+- La trazada es **una sola línea por el centro del asfalto** (ni borde exterior ni interior), en el
+  sentido de marcha, cerrando el bucle y sin la entrada de boxes. Con 15–25 puntos basta: el mapa es
+  una referencia visual y el cronometraje lo define el trap de meta, que se ajusta a esa línea.
 
 ## 7. Próximos pasos para validar
 

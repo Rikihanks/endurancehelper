@@ -433,12 +433,14 @@ export default function TracksView({ adapter, snapshot, activeTrackId, onSelectT
             </button>
           </div>
           <p className="rb-hint">
-            Consejo: en Google Maps, clic derecho en cada punto del circuito → copiar «28.4668, -16.3485»
-            y pégalos aquí (una línea por punto, ~15–30 para que quede bien; en el bucle con árboles
-            ve punteando los que puedas). Si prefieres dibujar: en <b>Google My Maps</b>
-            (mymaps.google.com) → «Añadir línea» → dibuja la pista → «Exportar a KML» → súbelo arriba
-            con «Importar trazada». Lo más exacto sigue siendo grabar una vuelta y crear el circuito
-            desde esa sesión.
+            Trazada = <b>una sola línea por el centro del asfalto</b> (ni borde exterior ni interior),
+            en el <b>sentido de marcha</b>, cerrando el bucle y sin incluir la entrada de boxes. Con
+            15–25 puntos (uno por curva y uno por recta) sobra.
+            <br />
+            Para conseguirla: <b>Google My Maps</b> (mymaps.google.com) → «Añadir línea» → dibújala →
+            «Exportar a KML» → súbela con «Importar trazada». O clic derecho en cada punto de
+            <b>Google Maps</b> y pega las coordenadas aquí. Lo más exacto sigue siendo{' '}
+            <b>grabar una vuelta</b> y crear el circuito desde esa sesión.
           </p>
         </section>
       )}
