@@ -60,22 +60,48 @@
  */
 
 /**
- * Whether a fix status means the position is usable.
- * @param {number} fixStatus
+ * Whether the device marks the coordinates as valid. This is the authoritative
+ * signal: Lat/Lon Flags bit0 = 1 means "latitude/longitude/altitudes invalid"
+ * (RaceBox BLE Protocol rev 9, payload offset 66).
+ * @param {RaceBoxRecord} r
  */
-export function hasFix(fixStatus) {
-  return fixStatus >= 2;
+export function coordinatesValid(r) {
+  if (!r) return false;
+  return (r.latLonFlags & 0x01) === 0;
 }
 
 /**
- * Official recommendation (RaceBox BLE Protocol rev 9): a good location
- * solution requires Fix Status Flags bit0 ("valid fix") AND FixStatus === 3,
- * and the Lat/Lon Flags must not mark coordinates as invalid.
+ * Whether there is a usable position fix.
+ *
+ * Note: we do NOT rely on fixStatus/fixFlags alone. A real RaceBox Mini S has
+ * been observed reporting `fixStatus = 0` and `Fix Status Flags = 0x00` while
+ * still streaming valid coordinates with 7 satellites and 8.5 m accuracy. The
+ * device's own Lat/Lon Flags remain the reliable validity indicator, so we use
+ * them plus a sane satellite count (the vendor's own guidance needs >= 4 SVs).
  * @param {RaceBoxRecord} r
  */
 export function isPositionValid(r) {
   if (!r) return false;
-  return r.fixStatus === 3 && (r.fixFlags & 0x01) === 1 && (r.latLonFlags & 0x01) === 0;
+  return coordinatesValid(r) && r.numSVs >= 4;
+}
+
+/**
+ * Whether fixStatus/fixFlags report a "good" 3D solution per the official
+ * recommendation (Fix Status Flags bit0 set AND Fix Status === 3). Informational
+ * only: some firmware does not set these fields in live packets.
+ * @param {RaceBoxRecord} r
+ */
+export function hasGnssFixFlag(r) {
+  if (!r) return false;
+  return r.fixStatus === 3 && (r.fixFlags & 0x01) === 1;
+}
+
+/**
+ * Whether a fix status means the position is usable (legacy: status only).
+ * @param {number} fixStatus
+ */
+export function hasFix(fixStatus) {
+  return fixStatus >= 2;
 }
 
 /**

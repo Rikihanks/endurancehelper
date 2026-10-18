@@ -16,6 +16,7 @@ import {
 import {
   isPositionValid,
   hasValidTime,
+  hasGnssFixFlag,
 } from '../src/services/devices/racebox/RaceBoxTypes.js';
 
 // Test vectors are SYNTHETIC and constructed from the documented offsets. They
@@ -294,6 +295,7 @@ test('a frame with no GNSS fix is not a valid position', () => {
   // and the Lat/Lon Flags bit0 set (coordinates invalid).
   const p = buildPayload({ fixStatus: 0, latitude: 0, longitude: 0, speed: 0, heading: 0 });
   p[21] = 0x00; // fix status flags: no valid fix
+  p[23] = 0x00; // zero satellites used
   p[66] = 0x01; // lat/lon flags: coordinates invalid
   p[11] = 0x00; // validity flags: date/time not valid
   const r = decodePayload(p);
@@ -302,4 +304,64 @@ test('a frame with no GNSS fix is not a valid position', () => {
   assert.equal(hasValidTime(r), false);
   assert.equal(r.latitude, 0);
   assert.equal(r.longitude, 0);
+});
+
+// Real 88-byte live frame captured from a RaceBox Mini S outdoors (Tenerife).
+// This exercises the full path: sync + length + Fletcher-16 checksum + decode.
+const REAL_FRAME_HEX =
+  'B5 62 FF 01 50 00 F0 D4 BE 03 EA 07 0A 12 11 1B 00 F7 00 04 00 00 88 B1 FA FF 00 00 E6 07 ' +
+  '11 7C 3F F6 E6 7F F5 10 B7 68 0E 00 6E DD 0D 00 34 21 00 00 C7 19 00 00 17 00 00 00 00 00 00 00 ' +
+  '7A 00 00 00 DC 5F FC 00 F6 01 00 5B 28 FD 62 01 4D 02 05 00 67 00 F3 00 5E F9';
+
+function hexToBytes(hex) {
+  return Uint8Array.from(hex.trim().split(/\s+/).map((b) => parseInt(b, 16)));
+}
+
+test('decodes a real RaceBox Mini S frame with a valid outdoor position', () => {
+  const frame = hexToBytes(REAL_FRAME_HEX);
+  assert.equal(frame.length, 88);
+
+  // The parser only emits a frame if the Fletcher-16 checksum is valid.
+  const parser = new UbxFrameParser();
+  const frames = parser.push(frame);
+  assert.equal(frames.length, 1, 'checksum must validate');
+  assert.equal(frames[0].cls, UBX_CLASS_RACEBOX);
+  assert.equal(frames[0].id, RACEBOX_ID.LIVE);
+
+  const r = decodePayload(frames[0].payload);
+  assert.ok(r);
+  assert.equal(r.iTOW, 62838000);
+  assert.equal(r.year, 2026);
+  assert.equal(r.month, 10);
+  assert.equal(r.day, 18);
+  assert.equal(r.hour, 17);
+  assert.equal(r.minute, 27);
+  assert.equal(r.second, 0);
+  assert.ok(Math.abs(r.latitude - 28.4524518) < 1e-6, `lat=${r.latitude}`);
+  assert.ok(Math.abs(r.longitude + 16.3611631) < 1e-6, `lon=${r.longitude}`);
+  assert.ok(Math.abs(r.wgsAltitude - 944.311) < 0.001, `wgs=${r.wgsAltitude}`);
+  assert.ok(Math.abs(r.altitude - 908.654) < 0.001, `msl=${r.altitude}`);
+  assert.ok(Math.abs(r.horizontalAccuracy - 8.5) < 1e-6, `hacc=${r.horizontalAccuracy}`);
+  assert.ok(Math.abs(r.verticalAccuracy - 6.599) < 0.001);
+  assert.ok(Math.abs(r.speed - 0.0828) < 0.01, `speed=${r.speed}`);
+  assert.equal(r.heading, 0);
+  assert.ok(Math.abs(r.pdop - 502) < 1e-9);
+  assert.equal(r.numSVs, 7);
+  assert.equal(r.latLonFlags, 0x00);
+  assert.equal(r.batteryLevel, 91);
+  assert.equal(r.charging, false);
+  assert.equal(r.gForceX, -728);
+  assert.equal(r.gForceY, 354);
+  assert.equal(r.gForceZ, 589);
+  assert.equal(r.rotRateX, 5);
+  assert.equal(r.rotRateY, 103);
+  assert.equal(r.rotRateZ, 243);
+
+  // The device reports fixStatus/fixFlags = 0 even with a valid position; the
+  // Lat/Lon Flags mark the coordinates as valid, so the position IS usable.
+  assert.equal(r.fixStatus, 0);
+  assert.equal(r.fixFlags, 0x00);
+  assert.equal(hasGnssFixFlag(r), false);
+  assert.equal(isPositionValid(r), true);
+  assert.equal(hasValidTime(r), true);
 });

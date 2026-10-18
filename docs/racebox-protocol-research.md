@@ -120,32 +120,45 @@ lat 42.6719035 / lon 23.2887238 / alt 625.761 m / 11 sat / batería 89 % / IMU -
 
 ## 3. Datos observados experimentalmente (hardware real)
 
+**Captura 1 (bajo techo, sin fix):**
 - Conexión GATT a **RaceBox Mini S** (`RaceBox Mini S 2242504377`) correcta, con NUS + TX notify.
 - **3373 tramas, 3373 paquetes, 0 errores de decodificación**, ~**25.5 Hz**.
-- IMU con valores plausibles (−722, 173, 671 mG; giro 0.1, 1.0, 2.5 deg/s) → offsets 68–79 correctos.
-- Batería **93 %**, descargando → offset 67 correcto.
-- Dispositivo **sin fix GNSS**: `fixStatus = 0`, `numSVs = 0`, `PDOP ≈ 99.99`,
-  `Lat/Lon Flags` bit0 = 1 (coordenadas inválidas), fecha `2020-08-02` (sin hora GNSS).
-  → Latitud/longitud/velocidad/rumbo = 0 **por falta de fix**, no por error de parseo.
+- IMU plausible (−722, 173, 671 mG; giro 0.1, 1.0, 2.5 deg/s) y batería 93 % → offsets 67–79 correctos.
+- Sin fix: `fixStatus = 0`, `numSVs = 0`, `PDOP ≈ 99.99`, lat/lon = 0, fecha `2020-08-02`.
+
+**Captura 2 (aire libre, con fix):**
+- Lat **28.4524518**, Lon **−16.3611631**, MSL alt **908.654 m**, WGS alt **944.311 m**.
+- **7 satélites**, `PDOP = 5.02`, precisión horizontal **8.5 m**, vertical 6.6 m, fecha/hora **2026-10-18 17:27:00 UTC** (válidas).
+- `Lat/Lon Flags = 0x00` → **coordenadas válidas**.
+- **Anomalía relevante:** `fixStatus = 0` y `Fix Status Flags = 0x00` **a pesar de tener posición
+  válida y 7 satélites**. La Mini S no usa esos dos campos como cabría esperar de la Rev 9.
+- Frame real capturado (88 B), verificado byte a byte y usado como test:
+  `B5 62 FF 01 50 00 F0 D4 BE 03 EA 07 0A 12 11 1B 00 F7 00 04 00 00 88 B1 FA FF 00 00 E6 07 11 7C 3F F6 E6 7F F5 10 B7 68 0E 00 6E DD 0D 00 34 21 00 00 C7 19 00 00 17 00 00 00 00 00 00 00 7A 00 00 00 DC 5F FC 00 F6 01 00 5B 28 FD 62 01 4D 02 05 00 67 00 F3 00 5E F9`
 
 ## 4. Respuesta a «¿cómo lo hace la app oficial?»
 
 La app oficial (y RaceChrono, LITPro, la app companion NSAT, etc.) **no hace nada especial**:
 se suscribe a la característica TX y lee el mismo mensaje `0xFF/0x01`. La posición sólo es válida
-cuando hay fix GNSS. Con `fixStatus = 0` y `Lat/Lon Flags` bit0 = 1, cualquier cliente —incluida
-la app de RaceBox— muestra ceros y «buscando satélites». Para obtener lat/lon hace falta cielo
-despejado (la Mini S no tiene botones: se enciende al conectar y el GNSS debe fijar ≥4 satélites).
+cuando el dispositivo tiene solución GNSS.
+
+**Conclusión práctica:** la validez de la posición se decide con **`Lat/Lon Flags` bit0** (0 =
+coordenadas válidas) y el número de satélites —**no** con `fixStatus`/`Fix Status Flags`—, porque
+una Mini S real reporta esos dos campos a 0 incluso con posición válida. Nuestra implementación lo
+hace así: `coordinatesValid()` / `isPositionValid()` (Lat/Lon Flags + ≥4 satélites).
 
 ## 5. Hipótesis resueltas y pendientes
 
-Resueltas por la Rev 9:
-- Offsets de **IMU (68–79)** y **batería (67)**: confirmados por tabla oficial y ejemplo.
-- `speed`/`heading` en 48/52 y precisiones en 56/60: confirmados.
-- LIVE no necesita comando: confirmado por el documento y por la práctica.
+Resueltas:
+- Offsets de **IMU (68–79)** y **batería (67)**: confirmados por la tabla oficial y por capturas reales.
+- `speed`/`heading` (48/52) y precisiones (56/60): confirmados.
+- LIVE se activa al conectar, sin comando: confirmado.
+- **`fixStatus`/`fixFlags` no son fiables en esta unidad** para decidir la validez de posición; se
+  usa `Lat/Lon Flags` + satélites.
+- `PDOP ≈ 99.99` (raw 9999) corresponde a «sin solución»; con fix baja a valores normales (5.02).
 
 Pendientes (menores, no bloquean la PoC):
-1. Confirmar si en Mini S `PDOP = 9999` es un sentinela de «sin fix» (visto 99.99).
-2. Confirmar la disponibilidad de la característica NMEA (firmware 3.3+) en la unidad probada.
+1. Confirmar si el `fixStatus = 0` con posición válida depende del firmware o del estado de grabación.
+2. Confirmar la característica NMEA (firmware 3.3+) en la unidad probada.
 3. Validar reconexión tras desconexión inesperada con la unidad física.
 
 ## 6. Próximos pasos

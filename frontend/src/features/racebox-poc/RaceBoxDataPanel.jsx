@@ -1,5 +1,6 @@
 import {
-  hasFix,
+  coordinatesValid,
+  hasGnssFixFlag,
   hasValidTime,
   isPositionValid,
 } from '../../services/devices/racebox/RaceBoxTypes.js';
@@ -52,7 +53,8 @@ function Field({ label, value, hint }) {
 export default function RaceBoxDataPanel({ snapshot, now }) {
   const r = snapshot.latest;
   const positionValid = isPositionValid(r);
-  const coordinatesInvalid = r ? (r.latLonFlags & 0x01) === 1 : false;
+  const coordsValid = coordinatesValid(r);
+  const gnssFlagOk = hasGnssFixFlag(r);
 
   return (
     <section className="rb-card">
@@ -99,28 +101,37 @@ export default function RaceBoxDataPanel({ snapshot, now }) {
         <>
           {!positionValid && (
             <div className="rb-alert rb-alert-warn">
-              <b>Sin solución GNSS (sin fix).</b> La RaceBox todavía no ha fijado satélites, por eso
-              latitud, longitud, velocidad y rumbo llegan a cero y la fecha aparece como
-              2020-08-02. Esto es lo que reporta el propio dispositivo, no un fallo de InLap: la app
-              oficial muestra exactamente lo mismo. Sal al aire libre con vista despejada del cielo
-              y espera unos segundos hasta que el fix sea 3D (≥4 satélites).
+              <b>Sin solución GNSS utilizable.</b> La RaceBox todavía no ha fijado satélites
+              suficientes. Cuando no hay fix, latitud/longitud/velocidad/rumbo llegan a cero y la
+              fecha puede aparecer como 2020-08-02. Esto es lo que reporta el propio dispositivo, no
+              un fallo de InLap: la app oficial muestra exactamente lo mismo. Sal al aire libre con
+              vista despejada del cielo y espera al fix 3D (≥4 satélites).
               <div className="rb-hint">
-                fixStatus={fixLabel(r.fixStatus)} · satélites={r.numSVs} · {flags(r.fixFlags)} ·{' '}
-                coordenadas {coordinatesInvalid ? 'marcadas como NO válidas' : 'válidas'}
+                fixStatus={fixLabel(r.fixStatus)} · satélites={r.numSVs} · coordenadas{' '}
+                {coordsValid ? 'válidas' : 'marcadas como NO válidas'} · {flags(r.latLonFlags)}
               </div>
             </div>
+          )}
+
+          {positionValid && !gnssFlagOk && (
+            <p className="rb-note">
+              Posición válida ({r.numSVs} satélites, precisión {num(r.horizontalAccuracy, 1, ' m')}),
+              pero el firmware reporta <b>Fix Status = 0</b> y <b>Fix Status Flags = 0x00</b>. Es un
+              comportamiento del dispositivo: la validez se toma de <b>Lat/Lon Flags</b> (bit0 = 0,
+              coordenadas válidas) y del número de satélites, no de esos dos campos.
+            </p>
           )}
 
           <div className="rb-data-grid">
             <Field
               label="Latitud"
               value={`${num(r.latitude, 7)}°`}
-              hint={coordinatesInvalid ? 'WGS84 · no válida (sin fix)' : 'WGS84'}
+              hint={!coordsValid ? 'WGS84 · no válida (sin fix)' : 'WGS84'}
             />
             <Field
               label="Longitud"
               value={`${num(r.longitude, 7)}°`}
-              hint={coordinatesInvalid ? 'WGS84 · no válida (sin fix)' : 'WGS84'}
+              hint={!coordsValid ? 'WGS84 · no válida (sin fix)' : 'WGS84'}
             />
             <Field label="Velocidad" value={num(r.speed, 1, ' km/h')} hint="ground speed" />
             <Field label="Rumbo" value={num(r.heading, 1, '°')} />
@@ -142,12 +153,12 @@ export default function RaceBoxDataPanel({ snapshot, now }) {
             <Field
               label="GPS"
               value={`${fixLabel(r.fixStatus)} · ${r.numSVs} sat`}
-              hint={hasFix(r.fixStatus) ? 'posición utilizable' : 'sin posición utilizable'}
+              hint={positionValid ? 'posición utilizable' : 'sin posición utilizable'}
             />
             <Field
               label="Altitud"
               value={num(r.altitude, 1, ' m')}
-              hint={coordinatesInvalid ? 'no válida (sin fix)' : 'sobre nivel del mar'}
+              hint={!coordsValid ? 'no válida (sin fix)' : 'sobre nivel del mar'}
             />
             <Field label="Precisión horizontal" value={num(r.horizontalAccuracy, 1, ' m')} />
             <Field label="Precisión de velocidad" value={num(r.speedAccuracy, 1, ' km/h')} />
@@ -162,7 +173,7 @@ export default function RaceBoxDataPanel({ snapshot, now }) {
           <h3>Flags del dispositivo</h3>
           <div className="rb-flags">
             <span>Fix Status Flags <b>{flags(r.fixFlags)}</b> · valid fix {r.fixFlags & 1} · valid heading {(r.fixFlags >> 5) & 1}</span>
-            <span>Lat/Lon Flags <b>{flags(r.latLonFlags)}</b> · {coordinatesInvalid ? 'coordenadas inválidas' : 'coordenadas válidas'}</span>
+            <span>Lat/Lon Flags <b>{flags(r.latLonFlags)}</b> · {!coordsValid ? 'coordenadas inválidas' : 'coordenadas válidas'}</span>
             <span>Validity Flags <b>{flags(r.validityFlags)}</b> · fecha válida {r.validityFlags & 1} · hora válida {(r.validityFlags >> 1) & 1}</span>
             <span>Date/Time Flags <b>{flags(r.dateTimeFlags)}</b></span>
           </div>
@@ -189,7 +200,7 @@ export default function RaceBoxDataPanel({ snapshot, now }) {
                       <th>Lat</th>
                       <th>Lon</th>
                       <th>km/h</th>
-                      <th>Fix</th>
+                      <th>Pos</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -206,7 +217,7 @@ export default function RaceBoxDataPanel({ snapshot, now }) {
                           <td className="rb-mono">{num(rec.latitude, 7)}</td>
                           <td className="rb-mono">{num(rec.longitude, 7)}</td>
                           <td className="rb-mono">{num(rec.speed, 1)}</td>
-                          <td>{fixLabel(rec.fixStatus)}</td>
+                          <td>{isPositionValid(rec) ? 'OK' : '—'}</td>
                         </tr>
                       ))}
                   </tbody>

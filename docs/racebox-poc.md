@@ -135,11 +135,13 @@ npm run cap:open:ios --workspace frontend   # abre Xcode
 ## 6. Estado de validación (PoC)
 
 - **Validado con hardware real**: escaneo, conexión GATT, descubrimiento NUS (RX/TX),
-  suscripción y **streaming de datos** (`0xFF/0x01`) a ~25 Hz con **0 errores de checksum**
-  (3373 tramas). Batería e IMU plausibles → offsets rev 9 correctos.
-- **Pendiente**: captura **con fix GNSS 3D** (coordenadas reales); validación en iPhone y
-  Android físicos; compilación nativa (requiere Xcode/Android SDK).
-- El decodificador está verificado contra el **paquete de ejemplo oficial (rev 9)** en los tests.
+  suscripción y **streaming** (`0xFF/0x01`) a ~25 Hz con **0 errores de checksum**.
+- **Posición real validada al aire libre**: lat 28.4524518, lon −16.3611631, alt 908.65 m,
+  7 satélites, PDOP 5.02, precisión 8.5 m, hora UTC correcta. Frame real guardado como test.
+- **Comportamiento del dispositivo**: la Mini S reporta `fixStatus = 0` y `Fix Status Flags = 0x00`
+  aun con posición válida; la validez se toma de **Lat/Lon Flags** (bit0 = 0) y ≥4 satélites.
+- **Pendiente**: validación en iPhone y Android físicos; compilación nativa (Xcode/Android SDK).
+- El decodificador está verificado además contra el **paquete oficial (rev 9)**.
 - El motor de estrategia, el backend y las rutas existentes no se han modificado.
 
 ## 7. Limitaciones conocidas (PoC)
@@ -160,7 +162,8 @@ npm run cap:open:ios --workspace frontend   # abre Xcode
 | --- | --- |
 | «Este navegador no soporta Web Bluetooth» | iOS Safari o contexto no seguro. Usa la app nativa en iOS, Chrome en Android, o HTTPS/localhost. |
 | No aparece ningún dispositivo al escanear (web) | El selector del navegador sólo muestra dispositivos cercanos; hay que elegir la RaceBox manualmente. |
-| **Lat/lon/velocidad a cero** | **Sin fix GNSS** (`fixStatus = 0`, `0 sat`, `Lat/Lon Flags` bit0 = 1). Sal al aire libre hasta fix 3D (≥4 satélites). La app oficial muestra lo mismo. |
+| **Lat/lon/velocidad a cero** | **Sin solución GNSS** (`numSVs = 0`, `Lat/Lon Flags` bit0 = 1). Sal al aire libre hasta fix 3D (≥4 satélites). La app oficial muestra lo mismo. |
+| **Aviso «posible sin fix» con posición real** | La Mini S reporta `fixStatus = 0`/`fixFlags = 0x00` aun con posición válida. Se decide por `Lat/Lon Flags` + satélites; ver §6. |
 | «Hora del dispositivo» vacía o 2020-08-02 | Sin hora GNSS válida (`Validity Flags` bit0/bit1 = 0). Se resuelve con fix. |
 | «Servicio ... no encontrado» al conectar | El dispositivo no expone NUS; ¿es realmente una RaceBox Mini S? Revisa el árbol GATT. |
 | Sin datos tras «Iniciar recepción» | La RaceBox no está transmitiendo o se perdió la conexión; revisa el estado y vuelve a conectar. |
