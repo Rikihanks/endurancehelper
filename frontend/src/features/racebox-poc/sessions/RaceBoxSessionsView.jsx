@@ -9,7 +9,8 @@ import {
 } from '../../../services/devices/racebox/RaceBoxAnalysis.js';
 import SessionViewer from './SessionViewer.jsx';
 import ErrorBoundary from '../ErrorBoundary.jsx';
-import { exportTextFile } from '../../../services/platform/exportFile.js';
+import { exportTextFile, pluginAvailable } from '../../../services/platform/exportFile.js';
+import { isNativePlatform, runtimePlatform } from '../../../services/bluetooth/index.js';
 
 function sessionName(records, index) {
   const stats = { startDate: null };
@@ -32,6 +33,7 @@ export default function RaceBoxSessionsView({ adapter, snapshot }) {
   const [message, setMessage] = useState(null);
   const [error, setError] = useState(null);
   const [code, setCode] = useState('123456');
+  const [diag, setDiag] = useState([]);
 
   const connected = !!snapshot.connectedDeviceId;
   const history = snapshot.history || { phase: 'idle', expected: 0, received: 0 };
@@ -127,6 +129,48 @@ export default function RaceBoxSessionsView({ adapter, snapshot }) {
     run(`delete:${id}`, async () => {
       await SessionStore.remove(id);
       await refresh();
+    });
+
+  const runDiagnostics = () =>
+    run('diag', async () => {
+      const lines = [];
+      const add = (t) => lines.push(`${new Date().toLocaleTimeString()} · ${t}`);
+      setDiag([]);
+      try {
+        const cap = typeof window !== 'undefined' ? window.Capacitor : null;
+        add(`runtime=${runtimePlatform()} · native=${isNativePlatform()} · Capacitor=${cap ? 'sí' : 'no'}`);
+        add(
+          `plugins: Filesystem=${pluginAvailable('Filesystem')} · Share=${pluginAvailable('Share')} · BluetoothLe=${pluginAvailable('BluetoothLe')}`,
+        );
+        if (typeof navigator !== 'undefined') add(`UA=${String(navigator.userAgent).slice(0, 90)}`);
+      } catch (err) {
+        add(`ERROR entorno: ${err && err.message}`);
+      }
+      try {
+        const list = await SessionStore.list();
+        add(`sesiones guardadas=${list.length}`);
+        if (list.length) {
+          const full = await SessionStore.get(list[0].id);
+          const recs = full && full.records;
+          add(
+            `sesión[0]: id=${full && full.id} · records=${Array.isArray(recs) ? recs.length : 'NO ES ARRAY'}`,
+          );
+          if (Array.isArray(recs) && recs[0]) {
+            add(`record[0].keys=${Object.keys(recs[0]).join(',')}`);
+            add(`record[0].lat=${recs[0].latitude} lon=${recs[0].longitude} speed=${recs[0].speed}`);
+          }
+        }
+      } catch (err) {
+        add(`ERROR leyendo sesión: ${err && err.name}: ${err && err.message}`);
+      }
+      try {
+        const res = await exportTextFile('inlap-diagnostico.csv', 'a,b\n1,2\n', 'text/csv');
+        add(`export OK · via=${res.via} · file=${res.filename}${res.warning ? ` · warning=${res.warning}` : ''}`);
+      } catch (err) {
+        add(`ERROR export: ${err && err.name}: ${err && err.message}`);
+        add(`stack=${String((err && err.stack) || '').split('\n').slice(0, 3).join(' | ')}`);
+      }
+      setDiag(lines);
     });
 
   if (selected) {
@@ -258,6 +302,20 @@ export default function RaceBoxSessionsView({ adapter, snapshot }) {
           </div>
         )}
       </section>
+
+      <details className="rb-details">
+        <summary>Diagnóstico (si algo no funciona)</summary>
+        <p className="rb-hint">
+          Ejecuta esto y pásame el texto: dice si la build incluye los plugins, si la sesión tiene
+          registros y qué error exacto da la exportación.
+        </p>
+        <div className="rb-toolbar">
+          <button type="button" className="rb-btn" onClick={runDiagnostics} disabled={!!busy}>
+            Ejecutar diagnóstico
+          </button>
+        </div>
+        {diag.length > 0 && <pre className="rb-hex rb-diag">{diag.join('\n')}</pre>}
+      </details>
     </>
   );
 

@@ -784,3 +784,14 @@ code {
   .rb-actionbar .rb-btn { min-height: 46px; }
   .rb-dashboard { scroll-margin-top: calc(44px + env(safe-area-inset-top, 0px)); }
 }
+/* Diagnostics block */
+.rb-details {
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 12px 14px;
+  background: var(--panel);
+  margin-bottom: 20px;
+}
+.rb-details summary { cursor: pointer; font-weight: 700; font-size: 14px; }
+.rb-details[open] summary { margin-bottom: 10px; }
+.rb-diag { max-height: 260px; overflow: auto; }

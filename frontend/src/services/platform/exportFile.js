@@ -23,6 +23,19 @@ export function textBytes(text) {
   return new TextEncoder().encode(String(text ?? ''));
 }
 
+/** Is a Capacitor plugin actually present in this build? */
+export function pluginAvailable(name) {
+  if (typeof window === 'undefined') return false;
+  const cap = window.Capacitor;
+  try {
+    if (cap && typeof cap.isPluginAvailable === 'function') return !!cap.isPluginAvailable(name);
+    if (cap && cap.Plugins) return !!cap.Plugins[name];
+  } catch (_) {
+    return false;
+  }
+  return false;
+}
+
 function webDownload(filename, bytes, mime) {
   if (typeof document === 'undefined' || typeof URL === 'undefined') {
     throw new Error('La descarga de archivos no está disponible en este entorno.');
@@ -47,8 +60,9 @@ function webDownload(filename, bytes, mime) {
 
 /**
  * Export a text file. On native it writes to the app cache and opens the share
- * sheet; on the web it triggers a download.
- * @returns {Promise<{ via: 'download'|'share', filename: string, uri?: string }>}
+ * sheet; on the web it triggers a download. Never throws without a useful
+ * message: the error text is propagated to the UI.
+ * @returns {Promise<{ via: 'share'|'download'|'download-fallback', filename: string, uri?: string, warning?: string }>}
  */
 export async function exportTextFile(filename, text, mime) {
   const safeName = sanitizeFilename(filename);
@@ -59,28 +73,51 @@ export async function exportTextFile(filename, text, mime) {
     return { via: 'download', filename: safeName };
   }
 
-  const [{ Filesystem, Directory, Encoding }, { Share }] = await Promise.all([
-    import('@capacitor/filesystem'),
-    import('@capacitor/share'),
-  ]);
-
-  const written = await Filesystem.writeFile({
-    path: safeName,
-    data: text,
-    directory: Directory.Cache,
-    encoding: Encoding.UTF8,
-  });
-
+  // Native: Filesystem + Share. Report clearly if the plugins are missing.
+  let nativeError = null;
   try {
-    await Share.share({
-      title: safeName,
-      text: 'Exportado desde InLap',
-      url: written.uri,
-      dialogTitle: 'Guardar o compartir',
+    const missing = ['Filesystem', 'Share'].filter((p) => !pluginAvailable(p));
+    if (missing.length) {
+      throw new Error(
+        `Esta build de la app no incluye ${missing.join(' y ')}. Reinstala el .ipa nuevo.`,
+      );
+    }
+    const [{ Filesystem, Directory, Encoding }, { Share }] = await Promise.all([
+      import('@capacitor/filesystem'),
+      import('@capacitor/share'),
+    ]);
+    const written = await Filesystem.writeFile({
+      path: safeName,
+      data: text,
+      directory: Directory.Cache,
+      encoding: Encoding.UTF8,
     });
-  } catch (_) {
-    // The user may dismiss the share sheet; the file is already written.
+    try {
+      await Share.share({
+        title: safeName,
+        text: 'Exportado desde InLap',
+        url: written.uri,
+        dialogTitle: 'Guardar o compartir',
+      });
+    } catch (_) {
+      // The user may dismiss the share sheet; the file is already written.
+    }
+    return { via: 'share', filename: safeName, uri: written.uri };
+  } catch (err) {
+    nativeError = err;
   }
 
-  return { via: 'share', filename: safeName, uri: written.uri };
+  // Fallback: try the browser download (works on some Android WebViews).
+  try {
+    webDownload(safeName, bytes, mime);
+    return {
+      via: 'download-fallback',
+      filename: safeName,
+      warning: String((nativeError && nativeError.message) || nativeError),
+    };
+  } catch (_) {
+    throw new Error(
+      `No se pudo exportar: ${String((nativeError && nativeError.message) || nativeError)}`,
+    );
+  }
 }

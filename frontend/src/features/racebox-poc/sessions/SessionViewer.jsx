@@ -54,6 +54,10 @@ export default function SessionViewer({ sessionId, onClose }) {
           setError('Sesión no encontrada.');
           return;
         }
+        if (!Array.isArray(s.records) || s.records.length === 0) {
+          setError('Esta sesión no tiene registros guardados (se grabó sin datos). Bórrala y graba de nuevo.');
+          return;
+        }
         setSession(s);
       })
       .catch((err) => {
