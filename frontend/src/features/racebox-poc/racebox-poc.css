@@ -795,3 +795,68 @@ code {
 .rb-details summary { cursor: pointer; font-weight: 700; font-size: 14px; }
 .rb-details[open] summary { margin-bottom: 10px; }
 .rb-diag { max-height: 260px; overflow: auto; }
+/* ===== Playback transport (app-like) ===== */
+
+.rb-transport {
+  display: grid;
+  grid-template-columns: 1fr 1.6fr 1fr;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.rb-transport .rb-btn {
+  min-height: 56px;
+  font-size: 20px;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.rb-btn-play { font-size: 24px !important; }
+.rb-btn-icon { font-size: 18px; }
+
+.rb-transport-secondary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  justify-content: space-between;
+  margin-top: 10px;
+}
+
+.rb-seg {
+  display: inline-flex;
+  border: 1px solid var(--border2);
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.rb-seg button {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  font-family: var(--font-ui);
+  font-size: 13px;
+  font-weight: 600;
+  padding: 10px 16px;
+  min-height: 44px;
+  cursor: pointer;
+}
+
+.rb-seg button + button { border-left: 1px solid var(--border2); }
+.rb-seg button.active {
+  background: var(--accent2);
+  color: #14161a;
+}
+
+.rb-lapnav { display: flex; gap: 8px; }
+.rb-lapnav .rb-btn { min-height: 42px; font-size: 13px; }
+
+@media (max-width: 700px) {
+  .rb-transport { grid-template-columns: 64px 1fr 64px; }
+  .rb-transport-secondary { margin-top: 8px; }
+  .rb-seg button { padding: 10px 12px; font-size: 12.5px; }
+  .rb-lapnav { width: 100%; }
+  .rb-lapnav .rb-btn { flex: 1; }
+}

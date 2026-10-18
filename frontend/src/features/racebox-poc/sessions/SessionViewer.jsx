@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { SessionStore } from '../../../services/storage/SessionStore.js';
 import { TrackStore } from '../../../services/storage/TrackStore.js';
 import { exportTextFile } from '../../../services/platform/exportFile.js';
@@ -11,6 +11,7 @@ import {
   toGpx,
   toCsv,
 } from '../../../services/devices/racebox/RaceBoxAnalysis.js';
+import { buildTimeline, indexAtTime } from '../../../services/devices/racebox/playback.js';
 import {
   computeTrackLaps,
   learnStartFinish,
@@ -29,10 +30,13 @@ export default function SessionViewer({ sessionId, onClose }) {
   const [error, setError] = useState(null);
   const [exportMsg, setExportMsg] = useState(null);
   const [selectedLap, setSelectedLap] = useState(0);
-  const [marker, setMarker] = useState(0);
+  const [scope, setScope] = useState('lap');
+  const [playing, setPlaying] = useState(false);
+  const [playSpeed, setPlaySpeed] = useState(1);
+  const [tNow, setTNow] = useState(0);
   const [reloadKey, setReloadKey] = useState(0);
+  const rafRef = useRef(0);
 
-  // Opening a session on a phone must not keep the previous scroll position.
   useEffect(() => {
     try {
       window.scrollTo({ top: 0, behavior: 'auto' });
@@ -72,9 +76,6 @@ export default function SessionViewer({ sessionId, onClose }) {
     };
   }, [sessionId]);
 
-  // Analysis is heavy on long sessions; run it after paint. If a saved track
-  // matches this session we time the laps from its traps (deterministic);
-  // otherwise we fall back to the heuristic and offer to learn the track.
   useEffect(() => {
     if (!session) return undefined;
     let cancelled = false;
@@ -128,9 +129,43 @@ export default function SessionViewer({ sessionId, onClose }) {
     return resampleLapByDistance(session.records, lap, GRID_STEP_M);
   }, [analysis, session, selectedLap]);
 
+  const timeline = useMemo(() => {
+    if (!analysis || !session) return null;
+    return buildTimeline(session.records, analysis.laps, {
+      lapIndex: scope === 'session' ? null : selectedLap,
+    });
+  }, [analysis, session, selectedLap, scope]);
+
+  // Reset the playhead when the scope or the lap changes.
   useEffect(() => {
-    setMarker(0);
-  }, [selectedLap]);
+    setTNow(0);
+  }, [scope, selectedLap]);
+
+  // Playback loop.
+  useEffect(() => {
+    if (!playing || !timeline) return undefined;
+    let last = performance.now();
+    const step = (now) => {
+      const dt = (now - last) / 1000;
+      last = now;
+      setTNow((prev) => {
+        const next = prev + dt * playSpeed;
+        const end = timeline.t[timeline.t.length - 1] || 0;
+        if (next >= end) {
+          setPlaying(false);
+          return end;
+        }
+        return next;
+      });
+      rafRef.current = requestAnimationFrame(step);
+    };
+    rafRef.current = requestAnimationFrame(step);
+    return () => cancelAnimationFrame(rafRef.current);
+  }, [playing, playSpeed, timeline]);
+
+  const markerIdx = timeline ? indexAtTime(timeline.t, tNow) : 0;
+  const playbackEnd = timeline && timeline.t.length ? timeline.t[timeline.t.length - 1] : 0;
+  const playbackLap = timeline && timeline.lapOf.length ? timeline.lapOf[Math.min(markerIdx, timeline.lapOf.length - 1)] : selectedLap;
 
   const mapPoints = useMemo(() => {
     if (!grid) return [];
@@ -167,10 +202,7 @@ export default function SessionViewer({ sessionId, onClose }) {
     setExportMsg(null);
     try {
       const name = session.meta.name || 'sesion-racebox';
-      const text =
-        kind === 'gpx'
-          ? toGpx(session.records, { name })
-          : toCsv(session.records);
+      const text = kind === 'gpx' ? toGpx(session.records, { name }) : toCsv(session.records);
       const res = await exportTextFile(
         `${name}.${kind}`,
         text,
@@ -216,8 +248,17 @@ export default function SessionViewer({ sessionId, onClose }) {
   const hasTrace = !!(grid && grid.distances.length > 1);
   const moved = (stats.distanceM || 0) >= MIN_MOVED_M;
   const lap = laps[selectedLap];
-  const idx = hasTrace ? Math.min(marker, grid.distances.length - 1) : 0;
   const startedAt = session.meta.startedAt ? new Date(session.meta.startedAt) : null;
+  const current =
+    timeline && timeline.t.length
+      ? {
+          t: timeline.t[markerIdx],
+          speed: timeline.speed[markerIdx],
+          gLat: timeline.gLat[markerIdx],
+          gLong: timeline.gLong[markerIdx],
+          dist: timeline.dist[markerIdx],
+        }
+      : null;
 
   return (
     <>
@@ -291,10 +332,10 @@ export default function SessionViewer({ sessionId, onClose }) {
       {!moved && (
         <section className="rb-card">
           <div className="rb-alert rb-alert-warn">
-            <b>Esta sesión no tiene movimiento.</b> El vehículo estuvo prácticamente parado
-            ({(stats.distanceM || 0).toFixed(1)} m recorridos), así que no hay trazada ni vueltas que
-            analizar: no es un fallo de la app, simplemente no hay datos de conducción. Graba rodando
-            en el circuito y podrás ver la trazada por velocidad, las gráficas y los tiempos.
+            <b>Esta sesión no tiene movimiento.</b> El vehículo estuvo prácticamente parado (
+            {Number(stats.distanceM || 0).toFixed(1)} m recorridos), así que no hay trazada ni vueltas
+            que analizar: no es un fallo de la app, simplemente no hay datos de conducción. Graba
+            rodando en el circuito y podrás ver la trazada por velocidad, las gráficas y los tiempos.
           </div>
         </section>
       )}
@@ -305,26 +346,101 @@ export default function SessionViewer({ sessionId, onClose }) {
             <div className="rb-card-head">
               <h2>Trazada</h2>
               <span className="rb-muted">
-                Vuelta {selectedLap + 1}
-                {selectedLap === bestIndex ? ' (mejor)' : ''}
+                {scope === 'session'
+                  ? `Sesión completa · vuelta ${(playbackLap || 0) + 1}`
+                  : `Vuelta ${selectedLap + 1}${selectedLap === bestIndex ? ' (mejor)' : ''}`}
               </span>
             </div>
-            <TrackMap points={mapPoints} markerIndex={idx} />
+
+            <TrackMap points={mapPoints} markerIndex={markerIdx} />
+
+            <div className="rb-transport">
+              <button
+                type="button"
+                className="rb-btn rb-btn-icon"
+                aria-label="Vuelta anterior"
+                disabled={scope === 'session' || selectedLap <= 0}
+                onClick={() => {
+                  setScope('lap');
+                  setSelectedLap((i) => Math.max(0, i - 1));
+                }}
+              >
+                ⏮
+              </button>
+              <button
+                type="button"
+                className="rb-btn rb-btn-primary rb-btn-play"
+                aria-label={playing ? 'Pausa' : 'Reproducir'}
+                onClick={() => {
+                  if (!playing && tNow >= (playbackEnd || 0)) setTNow(0);
+                  setPlaying((p) => !p);
+                }}
+              >
+                {playing ? '❚❚' : '▶'}
+              </button>
+              <button
+                type="button"
+                className="rb-btn rb-btn-icon"
+                aria-label="Vuelta siguiente"
+                disabled={scope === 'session' || selectedLap >= laps.length - 1}
+                onClick={() => {
+                  setScope('lap');
+                  setSelectedLap((i) => Math.min(laps.length - 1, i + 1));
+                }}
+              >
+                ⏭
+              </button>
+            </div>
+
+            <div className="rb-transport-secondary">
+              <div className="rb-seg" role="group" aria-label="Qué reproducir">
+                <button
+                  type="button"
+                  className={scope === 'lap' ? 'active' : ''}
+                  onClick={() => setScope('lap')}
+                >
+                  Vuelta
+                </button>
+                <button
+                  type="button"
+                  className={scope === 'session' ? 'active' : ''}
+                  onClick={() => setScope('session')}
+                >
+                  Sesión completa
+                </button>
+              </div>
+              <div className="rb-seg" role="group" aria-label="Velocidad de reproducción">
+                {[1, 2, 4].map((s) => (
+                  <button
+                    key={s}
+                    type="button"
+                    className={playSpeed === s ? 'active' : ''}
+                    onClick={() => setPlaySpeed(s)}
+                  >
+                    {s}×
+                  </button>
+                ))}
+              </div>
+            </div>
+
             <div className="rb-playback">
               <input
                 type="range"
                 min={0}
-                max={Math.max(0, grid.distances.length - 1)}
-                value={idx}
-                onChange={(e) => setMarker(Number(e.target.value))}
-                aria-label="Posición en la vuelta"
+                max={Math.max(1, Math.round(playbackEnd * 10))}
+                value={Math.round((tNow || 0) * 10)}
+                onChange={(e) => {
+                  setPlaying(false);
+                  setTNow(Number(e.target.value) / 10);
+                }}
+                aria-label="Posición en la reproducción"
               />
               <div className="rb-playback-readout">
-                <span>{grid.distances[idx]?.toFixed(0)} m</span>
-                <span>{grid.speeds[idx]?.toFixed(1)} km/h</span>
-                <span>lat {(grid.gLat[idx] / 1000).toFixed(2)} g</span>
-                <span>lon {(grid.gLong[idx] / 1000).toFixed(2)} g</span>
-                <span>t {(grid.times[idx] || 0).toFixed(2)} s</span>
+                <span>{Number(current?.dist || 0).toFixed(0)} m</span>
+                <span>{Number(current?.speed || 0).toFixed(1)} km/h</span>
+                <span>lat {Number(current?.gLat || 0).toFixed(2)} g</span>
+                <span>lon {Number(current?.gLong || 0).toFixed(2)} g</span>
+                <span>t {Number(current?.t || 0).toFixed(2)} s</span>
               </div>
             </div>
           </section>
@@ -344,7 +460,29 @@ export default function SessionViewer({ sessionId, onClose }) {
       )}
 
       <section className="rb-card">
-        <h2>Vueltas</h2>
+        <div className="rb-card-head">
+          <h2>Vueltas</h2>
+          {laps.length > 1 && (
+            <div className="rb-lapnav">
+              <button
+                type="button"
+                className="rb-btn"
+                disabled={selectedLap <= 0}
+                onClick={() => setSelectedLap((i) => Math.max(0, i - 1))}
+              >
+                ← Anterior
+              </button>
+              <button
+                type="button"
+                className="rb-btn"
+                disabled={selectedLap >= laps.length - 1}
+                onClick={() => setSelectedLap((i) => Math.min(laps.length - 1, i + 1))}
+              >
+                Siguiente →
+              </button>
+            </div>
+          )}
+        </div>
         <LapTable laps={laps} bestIndex={bestIndex} selectedIndex={selectedLap} onSelect={setSelectedLap} />
         {lap && (
           <p className="rb-muted" style={{ marginTop: 10 }}>
