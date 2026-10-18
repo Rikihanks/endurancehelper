@@ -132,7 +132,9 @@ export default function RaceBoxPocPage() {
         />
       )}
 
-      {tab === 'sessions' && <RaceBoxSessionsView adapter={adapter} snapshot={snapshot} />}
+      {tab === 'sessions' && (
+        <RaceBoxSessionsView adapter={adapter} snapshot={snapshot} activeTrackId={activeTrackId} />
+      )}
 
       <footer className="rb-footer">
         Protocolo basado en RaceBox BLE rev 9 (cliente de referencia lgnap/RaceBoxMicroBleClient).

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { SessionStore } from '../../../services/storage/SessionStore.js';
+import { TrackStore } from '../../../services/storage/TrackStore.js';
 import {
   detectLaps,
   sessionStats,
@@ -11,6 +12,8 @@ import SessionViewer from './SessionViewer.jsx';
 import ErrorBoundary from '../ErrorBoundary.jsx';
 import { exportTextFile, pluginAvailable } from '../../../services/platform/exportFile.js';
 import { isNativePlatform, runtimePlatform } from '../../../services/bluetooth/index.js';
+import { buildDemoSession } from '../../../services/devices/racebox/demoSession.js';
+import { computeTrackLaps } from '../../../services/devices/racebox/RaceBoxTrack.js';
 
 function sessionName(records, index) {
   const stats = { startDate: null };
@@ -26,7 +29,7 @@ function sessionName(records, index) {
   return `Sesión descargada #${index + 1}`;
 }
 
-export default function RaceBoxSessionsView({ adapter, snapshot }) {
+export default function RaceBoxSessionsView({ adapter, snapshot, activeTrackId }) {
   const [sessions, setSessions] = useState([]);
   const [selected, setSelected] = useState(null);
   const [busy, setBusy] = useState(null);
@@ -124,6 +127,38 @@ export default function RaceBoxSessionsView({ adapter, snapshot }) {
       setMessage('Memoria del dispositivo borrada.');
     });
   };
+
+  const createDemo = () =>
+    run('demo', async () => {
+      const track = activeTrackId ? await TrackStore.get(activeTrackId) : null;
+      if (!track || !Array.isArray(track.centerline) || track.centerline.length < 4) {
+        throw new Error(
+          'Para la demostración necesitas un circuito con trazada activa (por ejemplo «Karting Canarias (La Esperanza)» en la pestaña Circuitos).',
+        );
+      }
+      const records = buildDemoSession(track, { laps: 3 });
+      if (!records || records.length < 100) throw new Error('No se pudo generar la sesión de demostración.');
+      const timing = track.startFinish ? computeTrackLaps(records, track) : null;
+      const stats = sessionStats(records, timing ? timing.laps : []);
+      await SessionStore.save({
+        meta: {
+          name: `Demostración · ${track.name}`,
+          deviceName: 'Simulada',
+          deviceId: null,
+          source: 'demo',
+          startedAt: stats.startDate ? stats.startDate.toISOString() : null,
+          durationS: stats.durationS,
+          distanceM: stats.distanceM,
+          maxSpeed: stats.maxSpeed,
+          maxG: stats.maxG,
+          lapCount: timing ? timing.laps.length : null,
+          bestLapS: stats.bestLap ? stats.bestLap.durationS : null,
+        },
+        records,
+      });
+      await refresh();
+      setMessage('Sesión de demostración creada. Pulsa «Ver» para ver trazada, vueltas y gráficas.');
+    });
 
   const openSession = (session) => {
     if (!session || !session.id) {
@@ -326,6 +361,9 @@ export default function RaceBoxSessionsView({ adapter, snapshot }) {
         <div className="rb-toolbar">
           <button type="button" className="rb-btn" onClick={runDiagnostics} disabled={!!busy}>
             Ejecutar diagnóstico
+          </button>
+          <button type="button" className="rb-btn" onClick={createDemo} disabled={!!busy}>
+            Crear sesión de demostración
           </button>
         </div>
         {diag.length > 0 && <pre className="rb-hex rb-diag">{diag.join('\n')}</pre>}
