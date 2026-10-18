@@ -39,6 +39,25 @@ export function projectPath(points) {
 }
 
 /**
+ * Position at a fractional index along a polyline (0 = first point,
+ * points.length-1 = last). Used to run the playback marker exactly along the
+ * smoothed drawn line: the raw GPS position is too jittery at map zoom.
+ */
+export function interpolatePolyline(points, fractionIndex) {
+  if (!points || !points.length) return null;
+  const last = points.length - 1;
+  const f = Math.max(0, Math.min(last, Number(fractionIndex) || 0));
+  const i0 = Math.floor(f);
+  const i1 = Math.min(last, i0 + 1);
+  const t = f - i0;
+  const a = points[i0];
+  const b = points[i1];
+  if (!a) return null;
+  if (!b || t === 0) return { lat: a.lat, lon: a.lon };
+  return { lat: a.lat + (b.lat - a.lat) * t, lon: a.lon + (b.lon - a.lon) * t };
+}
+
+/**
  * Smooth a polyline with a moving average (positions only; other fields are
  * kept). Used to draw a clean racing line: at map zoom, half a metre of GPS
  * noise looks like a 10 px zig-zag.

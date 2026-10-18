@@ -7,6 +7,7 @@ import {
   snapToPath,
   rotatePoint,
   smoothPoints,
+  interpolatePolyline,
 } from '../src/features/racebox-poc/mapGeometry.js';
 
 test('projectPath is invertible (round trip lat/lon)', () => {
@@ -99,6 +100,26 @@ test('smoothPoints returns a copy and handles degenerate input', () => {
   assert.deepEqual(smoothPoints([], 2), []);
   const copy = smoothPoints(pts, 0, false);
   assert.notEqual(copy, pts);
+});
+
+test('interpolatePolyline walks along the line and clamps at the ends', () => {
+  const points = [
+    { lat: 28.46, lon: -16.36 },
+    { lat: 28.46, lon: -16.35 },
+    { lat: 28.47, lon: -16.35 },
+  ];
+  assert.deepEqual(interpolatePolyline(points, 0), { lat: 28.46, lon: -16.36 });
+  const mid = interpolatePolyline(points, 0.5);
+  assert.ok(Math.abs(mid.lon + 16.355) < 1e-9, `lon=${mid.lon}`);
+  assert.ok(Math.abs(mid.lat - 28.46) < 1e-9);
+  const mid2 = interpolatePolyline(points, 1.5);
+  assert.ok(Math.abs(mid2.lat - 28.465) < 1e-9, `lat=${mid2.lat}`);
+  assert.deepEqual(interpolatePolyline(points, -5), { lat: 28.46, lon: -16.36 });
+  assert.deepEqual(interpolatePolyline(points, 99), { lat: 28.47, lon: -16.35 });
+  // A single point is returned as-is; empty input gives null.
+  assert.deepEqual(interpolatePolyline([{ lat: 1, lon: 2 }], 3), { lat: 1, lon: 2 });
+  assert.equal(interpolatePolyline([], 1), null);
+  assert.equal(interpolatePolyline(null, 1), null);
 });
 
 test('rotatePoint preserves the distance to the centre', () => {

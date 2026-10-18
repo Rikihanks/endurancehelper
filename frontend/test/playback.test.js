@@ -54,6 +54,23 @@ test('buildTimeline for the whole session covers every lap', () => {
   assert.ok(tl.t.length > 500 && tl.t.length < 700, `samples=${tl.t.length}`);
 });
 
+test('lapDist restarts on every lap so the marker follows the drawn line', () => {
+  const recs = records();
+  const lapTl = buildTimeline(recs, LAPS, { lapIndex: 1 });
+  assert.equal(lapTl.lapDist[0], 0);
+  for (let i = 1; i < lapTl.lapDist.length; i++) {
+    assert.ok(lapTl.lapDist[i] >= lapTl.lapDist[i - 1], `lapDist must be monotonic (i=${i})`);
+  }
+  assert.ok(lapTl.lapDist[lapTl.lapDist.length - 1] > 10);
+
+  const sessionTl = buildTimeline(recs, LAPS, { lapIndex: null });
+  const firstOfLap2 = sessionTl.lapOf.findIndex((l) => l === 1);
+  assert.ok(firstOfLap2 > 0, 'lap 2 exists in the timeline');
+  assert.ok(sessionTl.lapDist[firstOfLap2] < 1, `lapDist resets: ${sessionTl.lapDist[firstOfLap2]}`);
+  // dist keeps accumulating across laps, lapDist does not.
+  assert.ok(sessionTl.dist[firstOfLap2] > sessionTl.lapDist[firstOfLap2]);
+});
+
 test('buildTimeline returns null without records/laps', () => {
   assert.equal(buildTimeline(null, LAPS), null);
   assert.equal(buildTimeline(records(), []), null);

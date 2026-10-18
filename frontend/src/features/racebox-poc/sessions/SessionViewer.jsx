@@ -12,7 +12,7 @@ import {
   toCsv,
 } from '../../../services/devices/racebox/RaceBoxAnalysis.js';
 import { buildTimeline, indexAtTime } from '../../../services/devices/racebox/playback.js';
-import { smoothPoints } from '../mapGeometry.js';
+import { smoothPoints, interpolatePolyline } from '../mapGeometry.js';
 import {
   computeTrackLaps,
   learnStartFinish,
@@ -245,8 +245,20 @@ export default function SessionViewer({ sessionId, onClose }) {
           lon: timelineB.lon[idxB],
           speed: timelineB.speed[idxB],
           dist: timelineB.dist[idxB],
+          lapDist: timelineB.lapDist[idxB],
         }
       : null;
+
+  // The marker runs along the drawn (smoothed) line using the real distance
+  // travelled, so it never shows the GPS jitter.
+  const markerOnLine = (points, lapDist) => {
+    if (!points || points.length < 2) return null;
+    const d = Number(lapDist);
+    if (!Number.isFinite(d)) return null;
+    return interpolatePolyline(points, d / GRID_STEP_M);
+  };
+  const markerA = mapPoints ? markerOnLine(mapPoints, current && current.lapDist) : null;
+  const markerB = mapPointsB ? markerOnLine(mapPointsB, currentB && currentB.lapDist) : null;
 
   const mapPoints = useMemo(() => {
     if (!grid) return [];
@@ -343,6 +355,7 @@ export default function SessionViewer({ sessionId, onClose }) {
           gLat: timeline.gLat[markerIdx],
           gLong: timeline.gLong[markerIdx],
           dist: timeline.dist[markerIdx],
+          lapDist: timeline.lapDist ? timeline.lapDist[markerIdx] : undefined,
         }
       : null;
 
@@ -450,7 +463,7 @@ export default function SessionViewer({ sessionId, onClose }) {
                   </div>
                   <TrackMap
                     points={mapPoints}
-                    marker={current ? { lat: current.lat, lon: current.lon } : null}
+                    marker={markerA}
                   />
                   <div className="rb-playback-readout">
                     <span>{Number((current && current.dist) || 0).toFixed(0)} m</span>
@@ -467,7 +480,7 @@ export default function SessionViewer({ sessionId, onClose }) {
                   </div>
                   <TrackMap
                     points={mapPointsB}
-                    marker={currentB ? { lat: currentB.lat, lon: currentB.lon } : null}
+                    marker={markerB}
                   />
                   <div className="rb-playback-readout">
                     <span>{Number((currentB && currentB.dist) || 0).toFixed(0)} m</span>
@@ -476,10 +489,7 @@ export default function SessionViewer({ sessionId, onClose }) {
                 </div>
               </div>
             ) : (
-              <TrackMap
-                points={mapPoints}
-                marker={current ? { lat: current.lat, lon: current.lon } : null}
-              />
+              <TrackMap points={mapPoints} marker={markerA} />
             )}
 
             {compare && (

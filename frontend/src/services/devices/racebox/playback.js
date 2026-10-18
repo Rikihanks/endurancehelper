@@ -33,10 +33,22 @@ export function buildTimeline(records, laps, { lapIndex = null, hz = TIMELINE_HZ
   const to = lap ? lap.endIndex : records.length - 1;
   const dtMs = 1000 / hz;
 
-  const out = { t: [], lat: [], lon: [], speed: [], gLat: [], gLong: [], dist: [], lapOf: [] };
+  const out = {
+    t: [],
+    lat: [],
+    lon: [],
+    speed: [],
+    gLat: [],
+    gLong: [],
+    dist: [],
+    lapDist: [],
+    lapOf: [],
+  };
   let nextT = t[from];
   for (let i = from; i <= to; i++) {
     if (t[i] >= nextT || i === from || i === to) {
+      const lapIndexHere = lapOf(i);
+      const lapStart = ranges[lapIndexHere] ? ranges[lapIndexHere][0] : from;
       out.t.push((t[i] - t[from]) / 1000);
       out.lat.push(records[i].latitude);
       out.lon.push(records[i].longitude);
@@ -44,7 +56,10 @@ export function buildTimeline(records, laps, { lapIndex = null, hz = TIMELINE_HZ
       out.gLat.push((records[i].gForceY || 0) / 1000);
       out.gLong.push((records[i].gForceX || 0) / 1000);
       out.dist.push(cum[i] - cum[from]);
-      out.lapOf.push(lapOf(i));
+      // Distance since the start of the lap the sample belongs to: the marker
+      // uses it to run along the (smoothed) drawn line instead of the raw path.
+      out.lapDist.push(cum[i] - cum[lapStart]);
+      out.lapOf.push(lapIndexHere);
       nextT += dtMs;
     }
   }
