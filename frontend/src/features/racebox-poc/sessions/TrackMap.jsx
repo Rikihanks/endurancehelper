@@ -20,7 +20,7 @@ export default function TrackMap({
   points,
   markerIndex = -1,
   marker = null,
-  height = 440,
+  height = null,
   rotatable = true,
 }) {
   const wrapRef = useRef(null);
@@ -112,7 +112,7 @@ export default function TrackMap({
   }
 
   return (
-    <div className="rb-track" style={{ height }} ref={wrapRef}>
+    <div className="rb-track" style={height ? { height } : undefined} ref={wrapRef}>
       {rotatable && (
         <button type="button" className="rb-track-rotate" onClick={cycleRotation}>
           {userRot == null ? 'Girar (auto)' : `Girar ${userRot}°`}

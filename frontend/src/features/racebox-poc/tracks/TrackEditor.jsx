@@ -5,7 +5,7 @@ import { projectPath, svgPointFromEvent, snapToPath } from '../mapGeometry.js';
 // on it to place the Start/Finish line or a split. The trap heading is taken
 // from the local path direction, so it always points the way the track goes.
 
-export default function TrackEditor({ points, traps = [], onPick, height = 420, instruction }) {
+export default function TrackEditor({ points, traps = [], onPick, instruction }) {
   const svgRef = useRef(null);
   const [hover, setHover] = useState(null);
   const proj = useMemo(() => projectPath(points), [points]);
@@ -41,7 +41,7 @@ export default function TrackEditor({ points, traps = [], onPick, height = 420, 
   }
 
   return (
-    <div className="rb-track" style={{ height }}>
+    <div className="rb-track">
       {instruction && <p className="rb-hint">{instruction}</p>}
       <svg
         ref={svgRef}

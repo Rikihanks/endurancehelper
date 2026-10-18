@@ -40,3 +40,36 @@ test('demo session needs a track with a centerline', () => {
   assert.equal(buildDemoSession({ centerline: [] }), null);
   assert.equal(buildDemoSession({ centerline: [{ lat: 1, lon: 1 }] }), null);
 });
+
+test('demo session looks like real driving, not zig-zag spikes', () => {
+  const records = buildDemoSession(TRACK, { laps: 3, startDate: '2026-10-19T09:00:00Z' });
+
+  // Lateral g must stay within karting grip and never flip side to side wildly.
+  let maxG = 0;
+  let stepSum = 0;
+  for (let i = 0; i < records.length; i++) {
+    maxG = Math.max(maxG, Math.abs(records[i].gForceY));
+    if (i > 0) stepSum += Math.abs(records[i].gForceY - records[i - 1].gForceY);
+  }
+  const meanStep = stepSum / Math.max(1, records.length - 1);
+  assert.ok(maxG <= 2000, `max lateral g=${maxG} mG`);
+  assert.ok(meanStep < 40, `mean lateral g step=${meanStep.toFixed(1)} mG (too spiky)`);
+
+  // Speed: a karting trace does not stop and go every sample.
+  let minSpeed = Infinity;
+  let maxSpeed = 0;
+  let speedStep = 0;
+  for (let i = 0; i < records.length; i++) {
+    minSpeed = Math.min(minSpeed, records[i].speed);
+    maxSpeed = Math.max(maxSpeed, records[i].speed);
+    if (i > 0) speedStep = Math.max(speedStep, Math.abs(records[i].speed - records[i - 1].speed));
+  }
+  assert.ok(minSpeed > 8, `min speed=${minSpeed}`);
+  assert.ok(maxSpeed < 90, `max speed=${maxSpeed}`);
+  assert.ok(speedStep < 3, `max speed step per sample=${speedStep.toFixed(2)} km/h`);
+
+  // Longitudinal g stays within accelerate/brake limits.
+  for (const r of records) {
+    assert.ok(Math.abs(r.gForceX) <= 1000, `longitudinal g=${r.gForceX}`);
+  }
+});
