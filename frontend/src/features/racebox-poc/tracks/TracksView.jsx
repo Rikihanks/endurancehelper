@@ -102,7 +102,7 @@ export default function TracksView({ adapter, snapshot, activeTrackId, onSelectT
         type: 'split',
         name: `Split ${(activeTrack.splits || []).length + 1}`,
       });
-      await TrackStore.save({ ...activeTrack, splits: [...(activeTrack.splits || []), split] });
+      await TrackStore.save({ ...activeTrack, edited: true, splits: [...(activeTrack.splits || []), split] });
       await refresh();
       setMessage(`Split añadido en ${fmtCoord(latest.latitude)}, ${fmtCoord(latest.longitude)}.`);
     });
@@ -136,6 +136,7 @@ export default function TracksView({ adapter, snapshot, activeTrackId, onSelectT
       if (placement === 'startFinish') {
         await TrackStore.save({
           ...activeTrack,
+          edited: true,
           startFinish: makeTrap({
             lat: point.lat,
             lon: point.lon,
@@ -158,7 +159,7 @@ export default function TracksView({ adapter, snapshot, activeTrackId, onSelectT
             name: `Split ${splits.length + 1}`,
           }),
         );
-        await TrackStore.save({ ...activeTrack, splits });
+        await TrackStore.save({ ...activeTrack, edited: true, splits });
         setMessage(`Split ${splits.length} colocado (${fmtCoord(point.lat)}, ${fmtCoord(point.lon)}) · sentido ${point.heading.toFixed(0)}°.`);
       }
       setPlacement('none');
@@ -180,7 +181,7 @@ export default function TracksView({ adapter, snapshot, activeTrackId, onSelectT
       if (!centerSessionId) throw new Error('Elige una sesión.');
       const session = await SessionStore.get(centerSessionId);
       if (!session) throw new Error('Sesión no encontrada.');
-      await TrackStore.save({ ...activeTrack, centerline: sessionCenterline(session.records) });
+      await TrackStore.save({ ...activeTrack, edited: true, centerline: sessionCenterline(session.records) });
       await refresh();
       setMessage('Trazada añadida: ya puedes editar meta y splits en el mapa.');
     });
@@ -192,7 +193,7 @@ export default function TracksView({ adapter, snapshot, activeTrackId, onSelectT
       if (points.length < 3) {
         throw new Error('Pega al menos 3 líneas con "latitud, longitud" (una por punto del trazado).');
       }
-      await TrackStore.save({ ...activeTrack, centerline: downsamplePoints(points, 800) });
+      await TrackStore.save({ ...activeTrack, edited: true, centerline: downsamplePoints(points, 800) });
       setPasted('');
       await refresh();
       setMessage(`Trazada creada con ${points.length} puntos. Ya puedes colocar meta y splits en el mapa.`);
@@ -206,7 +207,7 @@ export default function TracksView({ adapter, snapshot, activeTrackId, onSelectT
       if (!activeTrack) throw new Error('Selecciona un circuito activo primero.');
       const text = await file.text();
       const { format, points, total } = parseTrackFile(text);
-      await TrackStore.save({ ...activeTrack, centerline: points });
+      await TrackStore.save({ ...activeTrack, edited: true, centerline: points });
       await refresh();
       setMessage(
         `Trazada importada (${format}, ${points.length} de ${total} puntos). Ya puedes colocar meta y splits en el mapa.`,
@@ -220,6 +221,7 @@ export default function TracksView({ adapter, snapshot, activeTrackId, onSelectT
       const sf = activeTrack.startFinish;
       await TrackStore.save({
         ...activeTrack,
+        edited: true,
         startFinish: { ...sf, heading: (sf.heading + 180) % 360 },
       });
       await refresh();
@@ -230,7 +232,11 @@ export default function TracksView({ adapter, snapshot, activeTrackId, onSelectT
     run(`rename:${track.id}`, async () => {
       const next = window.prompt('Nuevo nombre del circuito', track.name);
       if (next === null) return;
-      await TrackStore.save({ ...track, name: next.trim() || track.name });
+      await TrackStore.save({
+        ...track,
+        edited: true,
+        name: next.trim() || track.name,
+      });
       await refresh();
     });
 

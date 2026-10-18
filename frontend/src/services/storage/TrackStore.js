@@ -102,32 +102,57 @@ export const TrackStore = {
       builtin: !!track.builtin,
       centerline: track.centerline || null,
       source: track.source || null,
+      seedVersion: track.seedVersion ?? null,
+      edited: !!track.edited,
     };
     await runTx('readwrite', (store) => store.put(record));
     if (!record.builtin) unhideBuiltin(record.id);
     return record.id;
   },
 
-  /** Insert the built-in tracks that are not stored yet and not hidden. */
+  /**
+   * Insert the built-in tracks that are not stored yet, and refresh an existing
+   * built-in entry when its seed data changed (unless the user edited it).
+   */
   async ensureBuiltins(list) {
     const hidden = hiddenBuiltins();
-    const existing = new Set((await this.list()).map((t) => t.id));
     let added = 0;
     for (const track of list) {
-      if (existing.has(track.id) || hidden.includes(track.id)) continue;
-      await runTx('readwrite', (store) =>
-        store.put({
-          id: track.id,
-          name: track.name,
-          createdAt: Date.now(),
-          startFinish: track.startFinish,
-          splits: track.splits || [],
-          builtin: true,
-          centerline: track.centerline || null,
-          source: track.source || null,
-        }),
-      );
-      added += 1;
+      if (hidden.includes(track.id)) continue;
+      const stored = await this.get(track.id);
+      const seedVersion = track.seedVersion ?? 1;
+      if (!stored) {
+        await runTx('readwrite', (store) =>
+          store.put({
+            id: track.id,
+            name: track.name,
+            createdAt: Date.now(),
+            startFinish: track.startFinish,
+            splits: track.splits || [],
+            builtin: true,
+            centerline: track.centerline || null,
+            source: track.source || null,
+            seedVersion,
+            edited: false,
+          }),
+        );
+        added += 1;
+        continue;
+      }
+      const isStale =
+        !stored.edited && (stored.seedVersion ?? 1) !== seedVersion;
+      if (isStale) {
+        await runTx('readwrite', (store) =>
+          store.put({
+            ...stored,
+            name: track.name,
+            startFinish: track.startFinish,
+            centerline: track.centerline || null,
+            source: track.source || null,
+            seedVersion,
+          }),
+        );
+      }
     }
     return added;
   },
