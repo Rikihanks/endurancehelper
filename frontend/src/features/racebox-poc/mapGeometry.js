@@ -43,6 +43,26 @@ export function bearingBetween(a, b) {
   return ((Math.atan2(b.x - a.x, b.y - a.y) * 180) / Math.PI + 360) % 360;
 }
 
+const M_PER_DEG_LAT = 110540;
+
+/**
+ * Rotate a lat/lon around a centre by `deg` degrees (used to fit a tall circuit
+ * into a wide screen). Distance from the centre is preserved.
+ */
+export function rotatePoint(p, centerLat, centerLon, deg) {
+  if (!deg) return p;
+  const mLon = 111320 * Math.cos((centerLat * Math.PI) / 180);
+  const dx = (p.lon - centerLon) * mLon;
+  const dy = (p.lat - centerLat) * M_PER_DEG_LAT;
+  const a = (deg * Math.PI) / 180;
+  const cos = Math.cos(a);
+  const sin = Math.sin(a);
+  return {
+    lat: centerLat + (dx * sin + dy * cos) / M_PER_DEG_LAT,
+    lon: centerLon + (dx * cos - dy * sin) / mLon,
+  };
+}
+
 /**
  * Convert a pointer event into viewBox coordinates, taking the letterboxing of
  * preserveAspectRatio="xMidYMid meet" into account.

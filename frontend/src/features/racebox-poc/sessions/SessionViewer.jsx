@@ -136,10 +136,23 @@ export default function SessionViewer({ sessionId, onClose }) {
     });
   }, [analysis, session, selectedLap, scope]);
 
-  // Reset the playhead when the scope or the lap changes.
+  // Reset the playhead when the scope changes (not when the lap follows playback).
   useEffect(() => {
     setTNow(0);
-  }, [scope, selectedLap]);
+  }, [scope]);
+
+  const selectLap = (index) => {
+    setSelectedLap(index);
+    setTNow(0);
+  };
+
+  // While replaying the whole session, the viewer follows the lap being played.
+  useEffect(() => {
+    if (scope !== 'session' || !timeline) return;
+    const idx = indexAtTime(timeline.t, tNow);
+    const lap = timeline.lapOf[Math.min(idx, timeline.lapOf.length - 1)];
+    if (lap != null && lap !== selectedLap) setSelectedLap(lap);
+  }, [tNow, scope, timeline, selectedLap]);
 
   // Playback loop.
   useEffect(() => {
@@ -253,6 +266,8 @@ export default function SessionViewer({ sessionId, onClose }) {
     timeline && timeline.t.length
       ? {
           t: timeline.t[markerIdx],
+          lat: timeline.lat[markerIdx],
+          lon: timeline.lon[markerIdx],
           speed: timeline.speed[markerIdx],
           gLat: timeline.gLat[markerIdx],
           gLong: timeline.gLong[markerIdx],
@@ -352,7 +367,10 @@ export default function SessionViewer({ sessionId, onClose }) {
               </span>
             </div>
 
-            <TrackMap points={mapPoints} markerIndex={markerIdx} />
+            <TrackMap
+              points={mapPoints}
+              marker={current ? { lat: current.lat, lon: current.lon } : null}
+            />
 
             <div className="rb-transport">
               <button
@@ -362,7 +380,7 @@ export default function SessionViewer({ sessionId, onClose }) {
                 disabled={scope === 'session' || selectedLap <= 0}
                 onClick={() => {
                   setScope('lap');
-                  setSelectedLap((i) => Math.max(0, i - 1));
+                  selectLap(Math.max(0, selectedLap - 1));
                 }}
               >
                 ⏮
@@ -385,7 +403,7 @@ export default function SessionViewer({ sessionId, onClose }) {
                 disabled={scope === 'session' || selectedLap >= laps.length - 1}
                 onClick={() => {
                   setScope('lap');
-                  setSelectedLap((i) => Math.min(laps.length - 1, i + 1));
+                  selectLap(Math.min(laps.length - 1, selectedLap + 1));
                 }}
               >
                 ⏭
@@ -468,7 +486,7 @@ export default function SessionViewer({ sessionId, onClose }) {
                 type="button"
                 className="rb-btn"
                 disabled={selectedLap <= 0}
-                onClick={() => setSelectedLap((i) => Math.max(0, i - 1))}
+                onClick={() => selectLap(Math.max(0, selectedLap - 1))}
               >
                 ← Anterior
               </button>
@@ -476,14 +494,14 @@ export default function SessionViewer({ sessionId, onClose }) {
                 type="button"
                 className="rb-btn"
                 disabled={selectedLap >= laps.length - 1}
-                onClick={() => setSelectedLap((i) => Math.min(laps.length - 1, i + 1))}
+                onClick={() => selectLap(Math.min(laps.length - 1, selectedLap + 1))}
               >
                 Siguiente →
               </button>
             </div>
           )}
         </div>
-        <LapTable laps={laps} bestIndex={bestIndex} selectedIndex={selectedLap} onSelect={setSelectedLap} />
+        <LapTable laps={laps} bestIndex={bestIndex} selectedIndex={selectedLap} onSelect={selectLap} />
         {lap && (
           <p className="rb-muted" style={{ marginTop: 10 }}>
             Vuelta seleccionada: {formatLapTime(lap.durationS)} · {Number(lap.distanceM || 0).toFixed(0)} m ·

@@ -5,6 +5,7 @@ import {
   projectPath,
   bearingBetween,
   snapToPath,
+  rotatePoint,
 } from '../src/features/racebox-poc/mapGeometry.js';
 
 test('projectPath is invertible (round trip lat/lon)', () => {
@@ -58,4 +59,39 @@ test('snapToPath snaps to the track and derives the heading', () => {
 test('projectPath returns null for a degenerate path', () => {
   assert.equal(projectPath([{ lat: 1, lon: 1 }]), null);
   assert.equal(projectPath(null), null);
+});
+
+test('rotatePoint preserves the distance to the centre', () => {
+  const center = { lat: 28.46, lon: -16.35 };
+  const p = { lat: 28.461, lon: -16.348 };
+  for (const deg of [0, 90, 180, 270, 360]) {
+    const r = rotatePoint(p, center.lat, center.lon, deg);
+    const mLat = 110540;
+    const mLon = 111320 * Math.cos((center.lat * Math.PI) / 180);
+    const d0 = Math.hypot((p.lon - center.lon) * mLon, (p.lat - center.lat) * mLat);
+    const d1 = Math.hypot((r.lon - center.lon) * mLon, (r.lat - center.lat) * mLat);
+    assert.ok(Math.abs(d0 - d1) < 0.5, `deg=${deg} d0=${d0} d1=${d1}`);
+  }
+  const same = rotatePoint(p, center.lat, center.lon, 0);
+  assert.equal(same, p, '0 degrees returns the same object');
+});
+
+test('rotatePoint 90 degrees turns a tall track into a wide one', () => {
+  const center = { lat: 28.47, lon: -16.35 };
+  // 100 m north of the centre.
+  const north = { lat: center.lat + 100 / 110540, lon: center.lon };
+  const r = rotatePoint(north, center.lat, center.lon, 90);
+  const mLon = 111320 * Math.cos((center.lat * Math.PI) / 180);
+  const east = (r.lon - center.lon) * mLon;
+  const northM = (r.lat - center.lat) * 110540;
+  assert.ok(Math.abs(northM) < 1, `after 90 deg the point should be level: north=${northM}`);
+  assert.ok(Math.abs(Math.abs(east) - 100) < 1, `east=${east}`);
+});
+
+test('rotatePoint four times returns to the start', () => {
+  const center = { lat: 28.47, lon: -16.35 };
+  let p = { lat: 28.4705, lon: -16.3495 };
+  for (let i = 0; i < 4; i++) p = rotatePoint(p, center.lat, center.lon, 90);
+  assert.ok(Math.abs(p.lat - 28.4705) < 1e-9, `lat=${p.lat}`);
+  assert.ok(Math.abs(p.lon + 16.3495) < 1e-9, `lon=${p.lon}`);
 });

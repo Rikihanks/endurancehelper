@@ -860,3 +860,22 @@ code {
   .rb-lapnav { width: 100%; }
   .rb-lapnav .rb-btn { flex: 1; }
 }
+/* Track map: rotation control */
+.rb-track-rotate {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  z-index: 2;
+  min-height: 38px;
+  padding: 8px 12px;
+  border-radius: 999px;
+  border: 1px solid var(--border2);
+  background: rgba(10, 12, 15, 0.75);
+  color: var(--text);
+  font-family: var(--font-ui);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
