@@ -7,6 +7,7 @@ import {
   sessionStats,
   computeDeltas,
   resampleLapByDistance,
+  downsample,
   formatLapTime,
   toGpx,
   toCsv,
@@ -281,10 +282,68 @@ export default function SessionViewer({ sessionId, onClose }) {
       setError('No se pudo deducir una línea de meta para esta sesión (¿hubo movimiento?).');
       return;
     }
+    const existing = analysis && analysis.matchedTrack;
+    if (existing) {
+      if (
+        !window.confirm(
+          `Ya hay un circuito asociado («${existing.name}»). ¿Actualizar su meta y su trazada con esta sesión? (los sectores se conservan)`,
+        )
+      ) {
+        return;
+      }
+      await TrackStore.save({
+        ...existing,
+        edited: true,
+        startFinish: trap,
+        centerline: sessionTrace() || existing.centerline,
+      });
+      setExportMsg(`Circuito «${existing.name}» actualizado con esta sesión (meta y trazada).`);
+      setReloadKey((k) => k + 1);
+      return;
+    }
     const name = window.prompt('Nombre del circuito', `Circuito ${new Date().toISOString().slice(0, 10)}`);
     if (name === null) return;
-    await TrackStore.save({ name: name || 'Circuito', startFinish: trap, splits: [] });
+    await TrackStore.save({
+      name: name || 'Circuito',
+      startFinish: trap,
+      splits: [],
+      centerline: sessionTrace(),
+    });
     setReloadKey((k) => k + 1);
+  }
+
+  /** Trace of the best lap (smoothed, closed) or of the whole session as fallback. */
+  function sessionTrace() {
+    if (!session || !analysis) return null;
+    const lap = analysis.laps[analysis.bestIndex];
+    let points = null;
+    if (lap && lap.endIndex > lap.startIndex) {
+      const g = resampleLapByDistance(session.records, lap, GRID_STEP_M);
+      points = g.distances.map((_, i) => ({ lat: g.lat[i], lon: g.lon[i] }));
+    } else {
+      points = downsample(session.records, 400).map((r) => ({ lat: r.latitude, lon: r.longitude }));
+    }
+    if (!points || points.length < 4) return null;
+    return smoothPoints(points, 2, true);
+  }
+
+  async function updateTrackTrace() {
+    try {
+      setExportMsg(null);
+      const track = await ensureTrackForSession();
+      const trace = sessionTrace();
+      if (!trace) {
+        setExportMsg('No hay trazada suficiente en esta sesión.');
+        return;
+      }
+      await TrackStore.save({ ...track, edited: true, centerline: trace });
+      setExportMsg(
+        `Trazada de «${track.name}» actualizada con la vuelta ${analysis.bestIndex + 1} de esta sesión (${trace.length} puntos).`,
+      );
+      setReloadKey((k) => k + 1);
+    } catch (err) {
+      setExportMsg(`No se pudo actualizar la trazada: ${String((err && err.message) || err)}`);
+    }
   }
 
   async function ensureTrackForSession() {
@@ -473,7 +532,7 @@ export default function SessionViewer({ sessionId, onClose }) {
             Exportar CSV
           </button>
           <button type="button" className="rb-btn rb-btn-primary" onClick={learnTrack}>
-            Guardar circuito
+            {analysis.matchedTrack ? 'Ajustar circuito' : 'Guardar circuito'}
           </button>
         </div>
         {exportMsg && <p className="rb-note">{exportMsg}</p>}
@@ -833,6 +892,9 @@ export default function SessionViewer({ sessionId, onClose }) {
             >
               Quitar último
             </button>
+            <button type="button" className="rb-btn" onClick={updateTrackTrace}>
+              Usar esta vuelta como trazada
+            </button>
           </div>
 
           {sectorMsg && <p className="rb-note">{sectorMsg}</p>}
@@ -856,7 +918,9 @@ export default function SessionViewer({ sessionId, onClose }) {
           <p className="rb-hint">
             Los cambios se guardan en el circuito, así que también valen para sesiones futuras (y
             puedes afinarlos en la pestaña Circuitos). Colocar 1–4 sectores divide cada vuelta en
-            tramos y los tiempos se recalculan al instante.
+            tramos y los tiempos se recalculan al instante. «Usar esta vuelta como trazada» sustituye
+            el dibujo del circuito por tu línea real (la mejor vuelta de esta sesión), conservando la
+            meta y los sectores.
           </p>
         </section>
       )}
