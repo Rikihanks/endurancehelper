@@ -1,5 +1,5 @@
 import { useMemo, useRef, useState } from 'react';
-import { projectPath, svgPointFromEvent, snapToPath } from '../mapGeometry.js';
+import { projectPath, svgPointFromEvent, snapToPath, trapGate } from '../mapGeometry.js';
 
 // Interactive track editor: draws the circuit centreline and lets the user tap
 // on it to place the Start/Finish line or a split. The trap heading is taken
@@ -59,12 +59,24 @@ export default function TrackEditor({ points, traps = [], onPick, instruction })
 
         {traps.map((trap, i) => {
           if (!trap || !Number.isFinite(trap.lat)) return null;
-          const p = proj.project(trap);
+          const gate = trapGate(trap, 16);
+          const a = proj.project(gate.a);
+          const b = proj.project(gate.b);
+          const c = proj.project(trap);
           const isSf = trap.type === 'startFinish';
           return (
             <g key={i}>
-              <circle cx={p.x} cy={p.y} r={isSf ? 12 : 9} fill={isSf ? '#fff' : '#22d3ee'} stroke="#111" strokeWidth={2} />
-              <text x={p.x} y={p.y - 18} textAnchor="middle" fontSize="22" fill={isSf ? '#fff' : '#22d3ee'}>
+              <line
+                x1={a.x}
+                y1={a.y}
+                x2={b.x}
+                y2={b.y}
+                stroke={isSf ? '#ffffff' : '#22d3ee'}
+                strokeWidth={isSf ? 7 : 6}
+                strokeLinecap="round"
+              />
+              <circle cx={c.x} cy={c.y} r={4} fill={isSf ? '#ffffff' : '#22d3ee'} />
+              <text x={c.x} y={c.y - 16} textAnchor="middle" fontSize="22" fill={isSf ? '#ffffff' : '#22d3ee'}>
                 {isSf ? 'Meta' : trap.name || `S${i}`}
               </text>
             </g>

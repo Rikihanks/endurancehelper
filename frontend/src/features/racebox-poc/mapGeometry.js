@@ -39,6 +39,26 @@ export function projectPath(points) {
 }
 
 /**
+ * Endpoints of a trap's gate (the line the vehicle crosses), so it can be drawn
+ * on the map. The gate is perpendicular to the passing heading; `maxWidthM`
+ * keeps the drawing readable when the timing gate is wider than the asphalt.
+ * @param {{lat:number, lon:number, heading:number, width:number}} trap
+ */
+export function trapGate(trap, maxWidthM = Infinity) {
+  const width = Math.min(Number(trap.width) || 20, maxWidthM);
+  const half = width / 2;
+  const gateAngle = ((180 - (Number(trap.heading) || 0)) * Math.PI) / 180;
+  const dx = Math.cos(gateAngle); // east component
+  const dy = Math.sin(gateAngle); // north component
+  const mLon = 111320 * Math.cos((trap.lat * Math.PI) / 180);
+  return {
+    width,
+    a: { lat: trap.lat + (dy * half) / M_PER_DEG_LAT, lon: trap.lon + (dx * half) / mLon },
+    b: { lat: trap.lat - (dy * half) / M_PER_DEG_LAT, lon: trap.lon - (dx * half) / mLon },
+  };
+}
+
+/**
  * Position at a fractional index along a polyline (0 = first point,
  * points.length-1 = last). Used to run the playback marker exactly along the
  * smoothed drawn line: the raw GPS position is too jittery at map zoom.

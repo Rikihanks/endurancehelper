@@ -8,6 +8,7 @@ import {
   rotatePoint,
   smoothPoints,
   interpolatePolyline,
+  trapGate,
 } from '../src/features/racebox-poc/mapGeometry.js';
 
 test('projectPath is invertible (round trip lat/lon)', () => {
@@ -120,6 +121,28 @@ test('interpolatePolyline walks along the line and clamps at the ends', () => {
   assert.deepEqual(interpolatePolyline([{ lat: 1, lon: 2 }], 3), { lat: 1, lon: 2 });
   assert.equal(interpolatePolyline([], 1), null);
   assert.equal(interpolatePolyline(null, 1), null);
+});
+
+test('trapGate returns a gate perpendicular to the passing heading', () => {
+  // Heading north: the gate runs east-west, width metres long, centred on the trap.
+  const trap = { lat: 28.4671, lon: -16.3483, heading: 0, width: 20 };
+  const gate = trapGate(trap, 100);
+  assert.ok(gate);
+  assert.ok(Math.abs(gate.a.lat - trap.lat) < 1e-9, 'gate is level for a north heading');
+  const mLon = 111320 * Math.cos((trap.lat * Math.PI) / 180);
+  const lengthM = Math.abs(gate.a.lon - gate.b.lon) * mLon;
+  assert.ok(Math.abs(lengthM - 20) < 0.5, `gate length=${lengthM}`);
+  const midLon = (gate.a.lon + gate.b.lon) / 2;
+  assert.ok(Math.abs(midLon - trap.lon) < 1e-9, 'gate is centred on the trap');
+
+  // Heading east: the gate runs north-south.
+  const east = trapGate({ lat: 28.4671, lon: -16.3483, heading: 90, width: 20 }, 100);
+  assert.ok(Math.abs(east.a.lon - trap.lon) < 1e-9);
+  assert.ok(Math.abs((east.a.lat - trap.lat) * 110540) > 9);
+
+  // maxWidthM keeps the drawing readable.
+  const clipped = trapGate({ lat: 28.4671, lon: -16.3483, heading: 0, width: 50 }, 16);
+  assert.equal(clipped.width, 16);
 });
 
 test('rotatePoint preserves the distance to the centre', () => {

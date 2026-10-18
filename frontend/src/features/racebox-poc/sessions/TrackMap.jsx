@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { projectPath, rotatePoint } from '../mapGeometry.js';
+import { projectPath, rotatePoint, trapGate } from '../mapGeometry.js';
 
 // SVG racing line from GPS points, coloured by speed, with a moving marker.
 // Mirrors the official app's "racing line" view: no map tiles, so it works
@@ -20,6 +20,7 @@ export default function TrackMap({
   points,
   markerIndex = -1,
   marker = null,
+  traps = [],
   height = null,
   rotatable = true,
 }) {
@@ -103,6 +104,25 @@ export default function TrackMap({
     return null;
   })();
 
+  // Start/finish and sector gates, drawn so you can see where each sector cuts.
+  const gates = (traps || [])
+    .filter((t) => t && Number.isFinite(t.lat) && Number.isFinite(t.lon))
+    .map((trap, index) => {
+      const gate = trapGate(trap, 16);
+      const a = proj.project(rotatePoint(gate.a, center.lat, center.lon, rot));
+      const b = proj.project(rotatePoint(gate.b, center.lat, center.lon, rot));
+      return { trap, a, b, index, isSf: trap.type === 'startFinish' };
+    });
+  let splitSeen = 0;
+  for (const g of gates) {
+    if (g.isSf) {
+      g.label = 'S/F';
+    } else {
+      splitSeen += 1;
+      g.label = g.trap.name && /^S\d$/.test(g.trap.name) ? g.trap.name : `S${splitSeen}`;
+    }
+  }
+
   function cycleRotation() {
     setUserRot((prev) => {
       if (prev == null) return 0;
@@ -144,10 +164,38 @@ export default function TrackMap({
             strokeLinecap="round"
           />
         ))}
-        <circle cx={projected[0].x} cy={projected[0].y} r={9} fill="#fff" stroke="#111" strokeWidth={2} />
-        <text x={projected[0].x} y={projected[0].y - 14} textAnchor="middle" fontSize="22" fill="#fff">
-          S/F
-        </text>
+        {gates.length === 0 && (
+          <>
+            <circle cx={projected[0].x} cy={projected[0].y} r={9} fill="#fff" stroke="#111" strokeWidth={2} />
+            <text x={projected[0].x} y={projected[0].y - 14} textAnchor="middle" fontSize="22" fill="#fff">
+              S/F
+            </text>
+          </>
+        )}
+
+        {gates.map((g) => (
+          <g key={g.index}>
+            <line
+              x1={g.a.x}
+              y1={g.a.y}
+              x2={g.b.x}
+              y2={g.b.y}
+              stroke={g.isSf ? '#ffffff' : '#22d3ee'}
+              strokeWidth={g.isSf ? 7 : 6}
+              strokeLinecap="round"
+              opacity={0.95}
+            />
+            <text
+              x={(g.a.x + g.b.x) / 2}
+              y={(g.a.y + g.b.y) / 2 - 14}
+              textAnchor="middle"
+              fontSize="24"
+              fill={g.isSf ? '#ffffff' : '#22d3ee'}
+            >
+              {g.label}
+            </text>
+          </g>
+        ))}
         {markerPos && (
           <>
             <circle cx={markerPos.x} cy={markerPos.y} r={14} fill="none" stroke="#fff" strokeWidth={3} />

@@ -441,6 +441,11 @@ export default function SessionViewer({ sessionId, onClose }) {
   const markerA = markerOnLine(mapPoints, current && current.lapDist);
   const markerB = markerOnLine(mapPointsB, currentB && currentB.lapDist);
 
+  // Gates (start/finish + sectors) drawn on the trace.
+  const viewerTraps = analysis.matchedTrack
+    ? [analysis.matchedTrack.startFinish, ...(analysis.matchedTrack.splits || [])].filter(Boolean)
+    : [];
+
   return (
     <>
       <section className="rb-card">
@@ -545,6 +550,7 @@ export default function SessionViewer({ sessionId, onClose }) {
                   </div>
                   <TrackMap
                     points={mapPoints}
+                    traps={viewerTraps}
                     marker={markerA}
                   />
                   <div className="rb-playback-readout">
@@ -562,6 +568,7 @@ export default function SessionViewer({ sessionId, onClose }) {
                   </div>
                   <TrackMap
                     points={mapPointsB}
+                    traps={viewerTraps}
                     marker={markerB}
                   />
                   <div className="rb-playback-readout">
@@ -571,7 +578,7 @@ export default function SessionViewer({ sessionId, onClose }) {
                 </div>
               </div>
             ) : (
-              <TrackMap points={mapPoints} marker={markerA} />
+              <TrackMap points={mapPoints} traps={viewerTraps} marker={markerA} />
             )}
 
             {compare && (
