@@ -4,6 +4,7 @@ import LiveControlBar from './LiveControlBar.jsx';
 import { PRESETS, PRESET_ORDER, getPreset } from './liveConfig.js';
 import { MOCK_MODEL, EMPTY_MODEL } from './liveMock.js';
 import { useActiveSessionId, useLiveScreenModel } from './useLiveScreenModel.js';
+import { useRaceBoxLive } from './useRaceBoxLive.js';
 import {
   keepScreenAwake,
   releaseScreenAwake,
@@ -30,6 +31,39 @@ function useOrientation() {
   return portrait ? 'portrait' : 'landscape';
 }
 
+function RaceBoxDevConnect({ live }) {
+  const [selected, setSelected] = useState('');
+  const devices = live.snapshot.devices || [];
+  const connected = !!live.snapshot.connectedDeviceId;
+  return (
+    <div className="live-dev-rb">
+      <span>
+        RB {live.snapshot.connectionState}
+        {connected ? (live.snapshot.receiving ? ' · recibiendo' : ' · conectado') : ''}
+      </span>
+      {!connected && (
+        <button type="button" onClick={live.scan}>Escanear</button>
+      )}
+      {!connected && devices.length > 0 && (
+        <>
+          <select value={selected} onChange={(event) => setSelected(event.target.value)}>
+            <option value="">Selecciona…</option>
+            {devices.map((device) => (
+              <option key={device.id} value={device.id}>{device.name || device.localName || device.id}</option>
+            ))}
+          </select>
+          <button type="button" disabled={!selected} onClick={() => live.connect(selected)}>Conectar</button>
+        </>
+      )}
+      {connected && (
+        <button type="button" onClick={live.disconnect}>Desconectar</button>
+      )}
+      {live.track && <span>· {live.track.name}</span>}
+      {live.context && <span>· V{live.context.currentLap} ({live.context.laps})</span>}
+    </div>
+  );
+}
+
 export default function LiveScreenPage() {
   const orientation = useOrientation();
   const [presetId, setPresetId] = useState('full');
@@ -37,7 +71,8 @@ export default function LiveScreenPage() {
   const [recording, setRecording] = useState(false);
 
   const sessionId = useActiveSessionId();
-  const liveModel = useLiveScreenModel(sessionId);
+  const raceBox = useRaceBoxLive();
+  const liveModel = useLiveScreenModel(sessionId, raceBox.context);
   const hasReal = !!(liveModel && liveModel.hasData);
   const model = hasReal ? liveModel : IS_DEV ? MOCK_MODEL : EMPTY_MODEL;
   const usingMock = IS_DEV && !hasReal;
@@ -77,6 +112,7 @@ export default function LiveScreenPage() {
               ))}
             </select>
           </label>
+          <RaceBoxDevConnect live={raceBox} />
         </div>
       )}
 

@@ -1,3 +1,5 @@
+import { applyTransferRule } from './liveTransfer.js';
+
 const MIN = 60e3;
 
 export function getStintColor(elapsedMs, maxMs) {
@@ -64,6 +66,7 @@ export function buildLiveScreenModel(payload, racebox = null) {
   const ourKart = payload.ourKart || null;
   const endurance = payload.endurance || {};
   const drivers = Array.isArray(payload.drivers) ? payload.drivers : [];
+  const rb = racebox || null;
 
   const position = positive(ourKart && ourKart.position);
   const driversByPos = drivers.filter((driver) => positive(driver.position));
@@ -72,12 +75,31 @@ export function buildLiveScreenModel(payload, racebox = null) {
   const stintElapsedMs = null;
   const stintTone = getStintColor(stintElapsedMs, stintMaxMs);
 
-  const deltaSeconds = racebox && Number.isFinite(racebox.deltaSeconds) ? racebox.deltaSeconds : null;
+  const deltaSeconds = rb && Number.isFinite(rb.deltaSeconds) ? rb.deltaSeconds : null;
   const deltaTone = deltaSeconds === null ? 'muted' : deltaSeconds < 0 ? 'green' : deltaSeconds > 0 ? 'red' : 'muted';
 
-  const sectors = racebox && Array.isArray(racebox.sectors) ? racebox.sectors : [];
-
   const laps = Number.isFinite(ourKart && ourKart.laps) && ourKart.laps >= 0 ? ourKart.laps : null;
+  const inLapCurrent = laps === null ? null : laps + 1;
+
+  const transfer = applyTransferRule(
+    {
+      currentLap: inLapCurrent,
+      bestLapMs: positive(ourKart && ourKart.bestLap),
+      lastLapMs: positive(ourKart && ourKart.lastLap),
+      lastLapNumber: laps ? laps : null,
+    },
+    {
+      currentLap: rb && positive(rb.currentLap),
+      bestLapS: rb && rb.bestLapS,
+      bestLapNumber: rb && rb.bestLapNumber,
+      lastLapS: rb && rb.lastLapS,
+      lastLapNumber: rb && rb.lastLapNumber,
+    }
+  );
+
+  const sectors = rb
+    ? computeSectorStates(rb.currentSectors, rb.lastSectors, rb.bestSectors, rb.sectorCount)
+    : [];
 
   return {
     isMock: false,
@@ -91,18 +113,12 @@ export function buildLiveScreenModel(payload, racebox = null) {
     stintPending: true,
     rivalAhead: rivalAt(driversByPos, position ? position - 1 : null),
     rivalBehind: rivalAt(driversByPos, position ? position + 1 : null),
-    currentLap: laps === null ? null : laps + 1,
+    currentLap: inLapCurrent !== null ? inLapCurrent : rb && positive(rb.currentLap),
     deltaSeconds,
     deltaTone,
     sectors,
-    bestLap: {
-      lap: null,
-      timeMs: positive(ourKart && ourKart.bestLap),
-    },
-    lastLap: {
-      lap: laps ? laps : null,
-      timeMs: positive(ourKart && ourKart.lastLap),
-    },
+    bestLap: transfer.bestLap || { lap: null, timeMs: null },
+    lastLap: transfer.lastLap || { lap: null, timeMs: null },
     connected: !!payload.connected,
     connectionState: payload.connectionState || 'idle',
   };

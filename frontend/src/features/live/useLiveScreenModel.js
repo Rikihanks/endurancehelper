@@ -25,7 +25,7 @@ export function useActiveSessionId() {
   return sessionId;
 }
 
-export function useLiveScreenModel(sessionId) {
+export function useLiveScreenModel(sessionId, racebox = null) {
   const [payload, setPayload] = useState(null);
 
   useEffect(() => {
@@ -39,5 +39,5 @@ export function useLiveScreenModel(sessionId) {
     };
   }, [sessionId]);
 
-  return buildLiveScreenModel(payload);
+  return buildLiveScreenModel(payload, racebox);
 }

@@ -54,3 +54,13 @@ Mientras tanto: no se implementa lógica que dependa de esa semántica. La Fase 
 ## 4. Fase 7b
 
 Pendiente: entregar propuesta escrita (identidad de móvil, presencia, asignación desde InLap, historial, permisos, modelo de datos y protocolo) antes de escribir código.
+
+## 5. Fase 3 — supuestos implementados (RaceBox)
+
+1. **Delta**: por distancia sobre la traza de la mejor vuelta de la sesión, reutilizando `resampleLapByDistance` + `haversine` del PoC (`RaceBoxLiveBridge`). En vivo se interpola el tiempo de referencia a la distancia actual y se resta el tiempo transcurrido de la vuelta.
+2. **Sectores**: del motor RaceBox (`LiveTiming`) del circuito activo. El circuito es el track activo del PoC (`localStorage: inlap-active-track`), que es lo que hoy define meta y sectores en InLap. Sin track activo, sectores vacíos (un segmento gris).
+3. **Traspaso best/last**: regla del plan. `useInLap = lapInLap >= lapRaceBox` (InLap = `laps + 1`); InLap manda si va igual o por delante, y por ítem cae a RaceBox si el dato falta.
+4. **Supuesto crítico por confirmar**: la regla asume que **la numeración de vueltas de ambas fuentes está en la misma escala** (RaceBox empieza a contar en el mismo cruce en que Apex cuenta su vuelta). Si el RaceBox se arranca a mitad de carrera, las numeraciones no coinciden y hará falta un **offset** explícito; no se implementa heurística hasta confirmarlo con datos reales.
+5. **Número de la mejor vuelta**: InLap no expone en qué vuelta se logró la mejor. Si el tiempo de InLap y el del RaceBox coinciden (±2 ms) se usa el número del RaceBox; si no, se muestra `V--` (no se inventa).
+6. **Conexión RaceBox en la pantalla en vivo**: por ahora el conector BLE es **solo de desarrollo** (fila dev). En producción la conexión llega con la Fase 5; hasta entonces, sin conexión, delta y sectores muestran `--`.
+7. **Tiempo de stint**: sigue pendiente de `T.Track/Pit` (sección 1). No dependía de la Fase 3.

@@ -124,14 +124,17 @@ test('live model handles first and last position', () => {
   assert.equal(last.rivalBehind, null);
 });
 
-test('live model passes racebox delta and sectors through', () => {
+test('live model builds sector tones and passes the racebox delta', () => {
   const model = buildLiveScreenModel(SNAPSHOT, {
     deltaSeconds: -0.23,
-    sectors: ['slower', 'improved', 'empty'],
+    currentSectors: [12, 11, 10],
+    lastSectors: [11, 11, 9],
+    bestSectors: [10, 10, 9],
+    sectorCount: 3,
   });
   assert.equal(model.deltaSeconds, -0.23);
   assert.equal(model.deltaTone, 'green');
-  assert.deepEqual(model.sectors, ['slower', 'improved', 'empty']);
+  assert.deepEqual(model.sectors, ['slower', 'improved', 'slower']);
   assert.equal(buildLiveScreenModel(SNAPSHOT, { deltaSeconds: 0.41 }).deltaTone, 'red');
 });
 
