@@ -3,8 +3,11 @@ import ReactDOM from 'react-dom/client';
 import App from './App.jsx';
 import Landing from './Landing.jsx';
 import RaceBoxPocPage from './features/racebox-poc/RaceBoxPocPage.jsx';
+import LiveScreenPage from './features/live/LiveScreenPage.jsx';
 import { isNativePlatform } from './services/bluetooth/index.js';
 import './styles.css';
+
+const LIVE_ENABLED = import.meta.env.DEV || isNativePlatform();
 
 // Same site, multiple routes:
 //   "/"         landing
@@ -18,9 +21,11 @@ function routeFromLocation() {
   const path = window.location.pathname || '/';
   const hash = window.location.hash || '';
   if (hash === '#racebox') return 'racebox';
+  if (hash === '#live') return LIVE_ENABLED ? 'live' : 'landing';
   if (hash === '#app') return 'app';
   if (hash === '#home' || hash === '#') return 'landing';
   if (path.startsWith('/racebox')) return 'racebox';
+  if (path.startsWith('/live')) return LIVE_ENABLED ? 'live' : 'landing';
   if (path.startsWith('/app')) return 'app';
   return 'landing';
 }
@@ -39,31 +44,38 @@ function navigate(hash) {
 
 function PocLauncher() {
   if (!showPocLink()) return null;
+  const buttonStyle = {
+    padding: '11px 16px',
+    borderRadius: 999,
+    border: '1px solid #e2a33d',
+    background: 'rgba(20,22,26,0.92)',
+    color: '#f5f5f5',
+    fontFamily: 'inherit',
+    fontSize: 13,
+    fontWeight: 700,
+    letterSpacing: '0.02em',
+    cursor: 'pointer',
+    minHeight: 44,
+    boxShadow: '0 6px 20px rgba(0,0,0,0.35)',
+  };
   return (
-    <button
-      type="button"
-      onClick={() => navigate('#racebox')}
+    <div
       style={{
         position: 'fixed',
         top: 'calc(10px + env(safe-area-inset-top, 0px))',
         right: 'calc(10px + env(safe-area-inset-right, 0px))',
         zIndex: 9999,
-        padding: '11px 16px',
-        borderRadius: 999,
-        border: '1px solid #e2a33d',
-        background: 'rgba(20,22,26,0.92)',
-        color: '#f5f5f5',
-        fontFamily: 'inherit',
-        fontSize: 13,
-        fontWeight: 700,
-        letterSpacing: '0.02em',
-        cursor: 'pointer',
-        minHeight: 44,
-        boxShadow: '0 6px 20px rgba(0,0,0,0.35)',
+        display: 'flex',
+        gap: 8,
       }}
     >
-      RaceBox PoC
-    </button>
+      <button type="button" onClick={() => navigate('#live')} style={buttonStyle}>
+        Live
+      </button>
+      <button type="button" onClick={() => navigate('#racebox')} style={buttonStyle}>
+        RaceBox PoC
+      </button>
+    </div>
   );
 }
 
@@ -81,6 +93,7 @@ function Root() {
   }, []);
 
   if (route === 'racebox') return <RaceBoxPocPage />;
+  if (route === 'live') return <LiveScreenPage />;
   return (
     <>
       <PocLauncher />

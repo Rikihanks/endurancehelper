@@ -18,10 +18,12 @@
   },
   "dependencies": {
     "@capacitor-community/bluetooth-le": "7.3.2",
+    "@capacitor-community/keep-awake": "^7.1.0",
     "@capacitor/android": "7.6.9",
     "@capacitor/core": "7.6.9",
     "@capacitor/filesystem": "7.1.9",
     "@capacitor/ios": "7.6.9",
+    "@capacitor/screen-orientation": "^7.0.4",
     "@capacitor/share": "7.0.4",
     "@tabler/icons-react": "^3.46.0",
     "react": "^18.3.1",
