@@ -62,7 +62,9 @@ function RaceBoxDevConnect({ live }) {
       <button type="button" onClick={live.simulating ? live.stopSimulate : live.simulate}>
         {live.simulating ? 'Parar sim' : 'Simular'}
       </button>
-      {live.track ? <span>· {live.track.name}</span> : <span>· sin circuito</span>}
+      {live.simulating
+        ? <span>· sim: {live.simTrackName}</span>
+        : live.track ? <span>· {live.track.name}</span> : <span>· sin circuito</span>}
       {live.context && (
         <span>
           · V{live.context.currentLap} · {live.context.laps} v

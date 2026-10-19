@@ -21,8 +21,12 @@ export function splitAt(centerline, ratio, width = 40) {
 }
 
 export function buildSimulation({ track = null, laps = 3, hz = 25 } = {}) {
-  const base = track || BUILTIN_TRACKS.find((candidate) => Array.isArray(candidate.centerline));
-  if (!base || !Array.isArray(base.centerline) || base.centerline.length < 4) return null;
+  const builtin = BUILTIN_TRACKS.find((candidate) => Array.isArray(candidate.centerline)) || null;
+  const provided = track && Array.isArray(track.centerline) && track.centerline.length >= 4 && track.startFinish && track.builtin
+    ? track
+    : null;
+  const base = provided || builtin;
+  if (!base) return null;
 
   const simTrack = base.splits && base.splits.length
     ? base

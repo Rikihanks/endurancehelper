@@ -21,6 +21,8 @@ test('simulation drives laps, sectors and delta from a builtin track', () => {
   assert.ok(Number.isFinite(ctx.deltaSeconds), `delta=${ctx.deltaSeconds}`);
 });
 
-test('simulation returns null without a usable track', () => {
-  assert.equal(buildSimulation({ track: { centerline: [] } }), null);
+test('simulation falls back to a builtin track for an unusable track', () => {
+  const simulation = buildSimulation({ track: { centerline: [] } });
+  assert.ok(simulation, 'builtin fallback was used');
+  assert.ok(simulation.records.length > 100);
 });

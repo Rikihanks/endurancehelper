@@ -11,6 +11,7 @@ export function useRaceBoxLive() {
   const [snapshot, setSnapshot] = useState(() => adapter.getSnapshot());
   const [context, setContext] = useState(null);
   const [simulating, setSimulating] = useState(false);
+  const [simTrackName, setSimTrackName] = useState(null);
   const bridgeRef = useRef(null);
   const simRef = useRef(false);
   const simTimerRef = useRef(null);
@@ -81,6 +82,7 @@ export function useRaceBoxLive() {
     }
     simRef.current = false;
     setSimulating(false);
+    setSimTrackName(null);
     bridgeRef.current = new RaceBoxLiveBridge(track);
   }, [track]);
 
@@ -94,8 +96,12 @@ export function useRaceBoxLive() {
     bridgeRef.current = new RaceBoxLiveBridge(simTrack);
     simRef.current = true;
     setSimulating(true);
+    setSimTrackName(simTrack.name || 'sim');
 
     let index = 0;
+    const warm = Math.min(records.length, 120);
+    for (; index < warm; index += 1) bridgeRef.current.push(records[index]);
+
     simTimerRef.current = setInterval(() => {
       const bridge = bridgeRef.current;
       for (let step = 0; step < 4 && index < records.length && bridge; step += 1) {
@@ -121,5 +127,6 @@ export function useRaceBoxLive() {
     simulate,
     stopSimulate,
     simulating,
+    simTrackName,
   };
 }
