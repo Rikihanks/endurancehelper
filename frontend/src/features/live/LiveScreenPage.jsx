@@ -3,7 +3,7 @@ import LiveGrid from './LiveGrid.jsx';
 import LiveControlBar from './LiveControlBar.jsx';
 import { PRESETS, PRESET_ORDER, getPreset } from './liveConfig.js';
 import { MOCK_MODEL, EMPTY_MODEL } from './liveMock.js';
-import { buildLiveScreenModel } from './liveModel.js';
+import { buildLiveScreenModel, selectModel, selectSource } from './liveModel.js';
 import { useActiveSessionId, useLiveScreenModel } from './useLiveScreenModel.js';
 import { useRaceBoxLive } from './useRaceBoxLive.js';
 import {
@@ -89,15 +89,13 @@ export default function LiveScreenPage() {
 
   const hasInLap = !!(inLapModel && inLapModel.hasData);
   const hasRaceBox = !!raceBox.context && (raceBox.context.started || raceBox.context.laps > 0);
-  const source = hasInLap ? 'inlap'
-    : raceBox.simulating ? 'sim'
-    : hasRaceBox ? 'racebox'
-    : IS_DEV ? 'mock'
-    : 'none';
-  const model = source === 'inlap' ? inLapModel
-    : source === 'racebox' ? raceBoxModel
-    : source === 'mock' ? MOCK_MODEL
-    : EMPTY_MODEL;
+  const source = selectSource({ hasInLap, simulating: raceBox.simulating, hasRaceBox, isDev: IS_DEV });
+  const model = selectModel(source, {
+    inLapModel,
+    raceBoxModel,
+    mockModel: MOCK_MODEL,
+    emptyModel: EMPTY_MODEL,
+  });
   const preset = useMemo(() => getPreset(presetId), [presetId]);
 
   useEffect(() => {

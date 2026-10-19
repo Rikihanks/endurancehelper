@@ -5,6 +5,8 @@ import {
   getStintColor,
   computeSectorStates,
   buildLiveScreenModel,
+  selectSource,
+  selectModel,
 } from '../src/features/live/liveModel.js';
 
 const MIN = 60e3;
@@ -177,6 +179,28 @@ test('racebox-only model fills delta, sectors and laps without InLap', () => {
   assert.equal(model.lastLap.lap, 3);
   assert.equal(model.lastLap.timeMs, 20800);
   assert.equal(model.position, null);
+});
+
+test('source selection prefers InLap, then simulation, then RaceBox', () => {
+  assert.equal(selectSource({ hasInLap: true, simulating: true, hasRaceBox: true, isDev: true }), 'inlap');
+  assert.equal(selectSource({ simulating: true, hasRaceBox: true, isDev: true }), 'sim');
+  assert.equal(selectSource({ hasRaceBox: true, isDev: true }), 'racebox');
+  assert.equal(selectSource({ isDev: true }), 'mock');
+  assert.equal(selectSource({ isDev: false }), 'none');
+});
+
+test('simulation and RaceBox both use the RaceBox model', () => {
+  const models = {
+    inLapModel: { id: 'inlap' },
+    raceBoxModel: { id: 'racebox' },
+    mockModel: { id: 'mock' },
+    emptyModel: { id: 'empty' },
+  };
+  assert.equal(selectModel('inlap', models).id, 'inlap');
+  assert.equal(selectModel('sim', models).id, 'racebox');
+  assert.equal(selectModel('racebox', models).id, 'racebox');
+  assert.equal(selectModel('mock', models).id, 'mock');
+  assert.equal(selectModel('none', models).id, 'empty');
 });
 
 test('live model returns null without a payload', () => {

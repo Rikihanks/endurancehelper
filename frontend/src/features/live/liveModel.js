@@ -60,6 +60,20 @@ function rivalAt(drivers, position) {
   };
 }
 
+export function selectSource({ hasInLap = false, simulating = false, hasRaceBox = false, isDev = false } = {}) {
+  if (hasInLap) return 'inlap';
+  if (simulating) return 'sim';
+  if (hasRaceBox) return 'racebox';
+  return isDev ? 'mock' : 'none';
+}
+
+export function selectModel(source, { inLapModel, raceBoxModel, mockModel, emptyModel }) {
+  if (source === 'inlap') return inLapModel;
+  if (source === 'racebox' || source === 'sim') return raceBoxModel;
+  if (source === 'mock') return mockModel;
+  return emptyModel;
+}
+
 export function buildLiveScreenModel(payload, racebox = null) {
   if (!payload || typeof payload !== 'object') return null;
 
