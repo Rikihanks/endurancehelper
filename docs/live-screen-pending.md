@@ -64,3 +64,12 @@ Pendiente: entregar propuesta escrita (identidad de móvil, presencia, asignaci�
 5. **Número de la mejor vuelta**: InLap no expone en qué vuelta se logró la mejor. Si el tiempo de InLap y el del RaceBox coinciden (±2 ms) se usa el número del RaceBox; si no, se muestra `V--` (no se inventa).
 6. **Conexión RaceBox en la pantalla en vivo**: por ahora el conector BLE es **solo de desarrollo** (fila dev). En producción la conexión llega con la Fase 5; hasta entonces, sin conexión, delta y sectores muestran `--`.
 7. **Tiempo de stint**: sigue pendiente de `T.Track/Pit` (sección 1). No dependía de la Fase 3.
+
+## 6. Fase 5 — grabación
+
+- La conexión RaceBox pasa a **producción**: el conector está en Configuración → RaceBox (y sigue en la fila dev durante el desarrollo). Empezar a grabar exige RaceBox conectada.
+- Selector de circuito **obligatorio** antes de grabar (lista de circuitos de InLap = tracks del PoC; al elegir se activa y se reconstruye el cronómetro).
+- Se guarda con el camino existente (`SessionStore`, IndexedDB), ampliado con `meta.header` (circuito, dorsal, modelo/ID de RaceBox, preset, versión de app, inicio, piloto) y `screenSnapshots` (instantáneas del `LiveScreenModel` a 1 Hz y en cada cambio de vuelta) y `meta.gaps`.
+- Huecos: si la RaceBox se desconecta o la app pasa a segundo plano durante la grabación, se avisa en pantalla y se marca el hueco en los datos (no se aparenta continuidad).
+- Salida de la pantalla durante la grabación: aviso del navegador (`beforeunload`). No hay más navegación in-app desde esta pantalla.
+- Cierre automático al pasar a `STINT_FINISHED`: pendiente de la Fase 7.

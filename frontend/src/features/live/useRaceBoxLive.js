@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { RaceBoxAdapter } from '../../services/devices/racebox/RaceBoxAdapter.js';
 import { RaceBoxLiveBridge } from '../../services/devices/racebox/RaceBoxLiveBridge.js';
 import { TrackStore } from '../../services/storage/TrackStore.js';
+import { BUILTIN_TRACKS } from '../../data/builtinTracks.js';
 
 const ACTIVE_TRACK_KEY = 'inlap-active-track';
 
@@ -12,6 +13,7 @@ export function useRaceBoxLive() {
   const [context, setContext] = useState(null);
   const [simulating, setSimulating] = useState(false);
   const [simTrackName, setSimTrackName] = useState(null);
+  const [tracks, setTracks] = useState([]);
   const bridgeRef = useRef(null);
   const simRef = useRef(false);
   const simTimerRef = useRef(null);
@@ -44,6 +46,22 @@ export function useRaceBoxLive() {
   }, [track]);
 
   useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        await TrackStore.ensureBuiltins(BUILTIN_TRACKS);
+        const list = await TrackStore.list();
+        if (!cancelled) setTracks(list || []);
+      } catch (_) {
+        if (!cancelled) setTracks([]);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
     adapter.initialize();
     const unsubscribe = adapter.addRecordListener((record) => {
       if (simRef.current) return;
@@ -74,6 +92,18 @@ export function useRaceBoxLive() {
     [adapter]
   );
   const disconnect = useCallback(() => adapter.disconnect(), [adapter]);
+
+  const selectTrack = useCallback(async (trackId) => {
+    const loaded = await TrackStore.get(trackId);
+    if (!loaded) return null;
+    try {
+      window.localStorage.setItem(ACTIVE_TRACK_KEY, trackId);
+    } catch (_) {
+      /* storage unavailable */
+    }
+    if (!simRef.current) setTrack(loaded);
+    return loaded;
+  }, []);
 
   const stopSimulate = useCallback(() => {
     if (simTimerRef.current) {
@@ -128,5 +158,7 @@ export function useRaceBoxLive() {
     stopSimulate,
     simulating,
     simTrackName,
+    tracks,
+    selectTrack,
   };
 }

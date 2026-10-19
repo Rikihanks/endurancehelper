@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { IconX } from '@tabler/icons-react';
 import { CELL_CONTENTS, CONTENT_IDS, PRESET_ORDER, getPreset } from './liveConfig.js';
 import { getCells, getOverrides } from './liveGridStore.js';
+import RaceBoxConnector from './RaceBoxConnector.jsx';
 
 function MiniGrid({ cells, showLabels = false, onSelect, selectedSlot = null }) {
   return (
@@ -32,7 +33,7 @@ function MiniGrid({ cells, showLabels = false, onSelect, selectedSlot = null }) 
   );
 }
 
-export default function LiveConfigPanel({ presetId, onSelectPreset, config, onAssign, onReset, onClose }) {
+export default function LiveConfigPanel({ presetId, onSelectPreset, config, onAssign, onReset, onClose, raceBox = null }) {
   const [editingSlot, setEditingSlot] = useState(null);
   const preset = getPreset(presetId);
   const cells = getCells(preset, getOverrides(config, presetId));
@@ -70,6 +71,13 @@ export default function LiveConfigPanel({ presetId, onSelectPreset, config, onAs
             })}
           </div>
         </section>
+
+        {raceBox && (
+          <section className="live-config-section">
+            <h3>RaceBox</h3>
+            <RaceBoxConnector live={raceBox} />
+          </section>
+        )}
 
         <section className="live-config-section live-config-editor">
           <h3>Contenido · {preset.name}</h3>

@@ -14,6 +14,7 @@ export const MOCK_MODEL = {
   sectors: ['slower', 'improved', 'empty'],
   bestLap: { lap: 10, timeMs: 59153 },
   lastLap: { lap: 11, timeMs: 59207 },
+  kart: '136',
 };
 
 export const EMPTY_MODEL = {
@@ -32,4 +33,5 @@ export const EMPTY_MODEL = {
   sectors: [],
   bestLap: null,
   lastLap: null,
+  kart: null,
 };

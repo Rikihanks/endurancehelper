@@ -135,5 +135,6 @@ export function buildLiveScreenModel(payload, racebox = null) {
     lastLap: transfer.lastLap || { lap: null, timeMs: null },
     connected: !!payload.connected,
     connectionState: payload.connectionState || 'idle',
+    kart: (ourKart && ourKart.kart) || null,
   };
 }

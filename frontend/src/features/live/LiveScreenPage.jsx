@@ -1,7 +1,9 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import LiveGrid from './LiveGrid.jsx';
 import LiveControlBar from './LiveControlBar.jsx';
 import LiveConfigPanel from './LiveConfigPanel.jsx';
+import RaceBoxConnector from './RaceBoxConnector.jsx';
+import { CircuitPicker, RecordBanner, StopDialog } from './LiveRecordSheets.jsx';
 import { PRESETS, PRESET_ORDER, getPreset } from './liveConfig.js';
 import { getCells, getOverrides } from './liveGridStore.js';
 import { useLiveGridConfig } from './useLiveGridConfig.js';
@@ -9,6 +11,8 @@ import { MOCK_MODEL, EMPTY_MODEL } from './liveMock.js';
 import { buildLiveScreenModel, selectModel, selectSource } from './liveModel.js';
 import { useActiveSessionId, useLiveScreenModel } from './useLiveScreenModel.js';
 import { useRaceBoxLive } from './useRaceBoxLive.js';
+import { useLiveRecorder } from './useLiveRecorder.js';
+import { appVersion, buildSessionHeader } from './recorderModel.js';
 import {
   keepScreenAwake,
   releaseScreenAwake,
@@ -35,56 +39,14 @@ function useOrientation() {
   return portrait ? 'portrait' : 'landscape';
 }
 
-function RaceBoxDevConnect({ live }) {
-  const [selected, setSelected] = useState('');
-  const devices = live.snapshot.devices || [];
-  const connected = !!live.snapshot.connectedDeviceId;
-  return (
-    <div className="live-dev-rb">
-      <span>
-        RB {live.snapshot.connectionState}
-        {connected ? (live.snapshot.receiving ? ' · recibiendo' : ' · conectado') : ''}
-      </span>
-      {!connected && (
-        <button type="button" onClick={live.scan}>Escanear</button>
-      )}
-      {!connected && devices.length > 0 && (
-        <>
-          <select value={selected} onChange={(event) => setSelected(event.target.value)}>
-            <option value="">Selecciona…</option>
-            {devices.map((device) => (
-              <option key={device.id} value={device.id}>{device.name || device.localName || device.id}</option>
-            ))}
-          </select>
-          <button type="button" disabled={!selected} onClick={() => live.connect(selected)}>Conectar</button>
-        </>
-      )}
-      {connected && (
-        <button type="button" onClick={live.disconnect}>Desconectar</button>
-      )}
-      <button type="button" onClick={live.simulating ? live.stopSimulate : live.simulate}>
-        {live.simulating ? 'Parar sim' : 'Simular'}
-      </button>
-      {live.simulating
-        ? <span>· sim: {live.simTrackName}</span>
-        : live.track ? <span>· {live.track.name}</span> : <span>· sin circuito</span>}
-      {live.context && (
-        <span>
-          · V{live.context.currentLap} · {live.context.laps} v
-          {live.context.deltaSeconds != null ? ` · Δ${live.context.deltaSeconds.toFixed(2)}` : ''}
-          {live.context.sectorCount ? ` · ${live.context.sectorCount} sec` : ''}
-        </span>
-      )}
-    </div>
-  );
-}
-
 export default function LiveScreenPage() {
   const orientation = useOrientation();
   const [presetId, setPresetId] = useState('full');
   const [orientationLocked, setOrientationLocked] = useState(false);
-  const [recording, setRecording] = useState(false);
   const [configOpen, setConfigOpen] = useState(false);
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const [stopOpen, setStopOpen] = useState(false);
+  const [recordError, setRecordError] = useState(null);
 
   const sessionId = useActiveSessionId();
   const raceBox = useRaceBoxLive();
@@ -100,6 +62,7 @@ export default function LiveScreenPage() {
     mockModel: MOCK_MODEL,
     emptyModel: EMPTY_MODEL,
   });
+
   const preset = useMemo(() => getPreset(presetId), [presetId]);
   const grid = useLiveGridConfig();
   const cells = useMemo(
@@ -107,12 +70,33 @@ export default function LiveScreenPage() {
     [preset, grid.config, presetId]
   );
 
+  const modelRef = useRef(model);
+  modelRef.current = model;
+  const contextRef = useRef(raceBox.context);
+  contextRef.current = raceBox.context;
+
+  const recorder = useLiveRecorder({
+    adapter: raceBox.adapter,
+    connected: !!raceBox.snapshot.connectedDeviceId,
+    readScreen: () => ({ model: modelRef.current, context: contextRef.current }),
+  });
+
   useEffect(() => {
     keepScreenAwake();
     return () => {
       releaseScreenAwake();
     };
   }, []);
+
+  useEffect(() => {
+    if (!recorder.recording) return undefined;
+    const onBeforeUnload = (event) => {
+      event.preventDefault();
+      event.returnValue = '';
+    };
+    window.addEventListener('beforeunload', onBeforeUnload);
+    return () => window.removeEventListener('beforeunload', onBeforeUnload);
+  }, [recorder.recording]);
 
   const toggleOrientation = async () => {
     if (orientationLocked) {
@@ -124,7 +108,61 @@ export default function LiveScreenPage() {
     }
   };
 
-  const toggleRecording = IS_DEV ? () => setRecording((value) => !value) : null;
+  const onRecordToggle = () => {
+    if (recorder.recording) {
+      setStopOpen(true);
+      return;
+    }
+    setRecordError(null);
+    if (!raceBox.snapshot.connectedDeviceId) {
+      setRecordError('Conecta la RaceBox para grabar.');
+      setConfigOpen(true);
+      return;
+    }
+    setPickerOpen(true);
+  };
+
+  const startRecording = async (trackId) => {
+    const track = await raceBox.selectTrack(trackId);
+    if (!track) {
+      setRecordError('No se pudo cargar el circuito.');
+      return;
+    }
+    setPickerOpen(false);
+    recorder.start(
+      buildSessionHeader({
+        track,
+        kart: modelRef.current ? modelRef.current.kart : null,
+        raceboxModel: raceBox.snapshot.connectedDeviceName || null,
+        raceboxId: raceBox.snapshot.connectedDeviceId || null,
+        preset: presetId,
+        appVersion: appVersion(),
+        startedAt: new Date().toISOString(),
+      })
+    );
+  };
+
+  const confirmStop = async () => {
+    setStopOpen(false);
+    await recorder.stop();
+  };
+
+  const dismissBanner = () => {
+    setRecordError(null);
+    recorder.dismissWarning();
+    recorder.dismissMessage();
+    recorder.dismissError();
+  };
+
+  const banner = recorder.error
+    ? { kind: 'error', text: recorder.error }
+    : recordError
+      ? { kind: 'error', text: recordError }
+      : recorder.warning
+        ? { kind: 'warn', text: recorder.warning }
+        : recorder.message
+          ? { kind: 'ok', text: recorder.message }
+          : null;
 
   return (
     <div className="live-page" data-orientation={orientation}>
@@ -145,7 +183,24 @@ export default function LiveScreenPage() {
               ))}
             </select>
           </label>
-          <RaceBoxDevConnect live={raceBox} />
+          <button
+            type="button"
+            className="live-dev-sim"
+            onClick={raceBox.simulating ? raceBox.stopSimulate : raceBox.simulate}
+          >
+            {raceBox.simulating ? 'Parar sim' : 'Simular'}
+          </button>
+          <span className="live-dev-state">
+            {raceBox.simulating
+              ? `sim: ${raceBox.simTrackName}`
+              : raceBox.track ? raceBox.track.name : 'sin circuito'}
+            {raceBox.context
+              ? ` · V${raceBox.context.currentLap} · ${raceBox.context.laps} v`
+                + (raceBox.context.deltaSeconds != null ? ` · Δ${raceBox.context.deltaSeconds.toFixed(2)}` : '')
+                + (raceBox.context.sectorCount ? ` · ${raceBox.context.sectorCount} sec` : '')
+              : ''}
+            {recorder.recording ? ` · grabando ${recorder.recordCount}` : ''}
+          </span>
         </div>
       )}
 
@@ -156,10 +211,16 @@ export default function LiveScreenPage() {
       <LiveControlBar
         orientationLocked={orientationLocked}
         onToggleOrientation={toggleOrientation}
-        recording={!!toggleRecording && recording}
-        onToggleRecording={toggleRecording}
+        recording={recorder.recording}
+        onToggleRecording={onRecordToggle}
         onOpenConfig={() => setConfigOpen(true)}
       />
+
+      {banner && (
+        <div className="live-banners">
+          <RecordBanner kind={banner.kind} onClose={dismissBanner}>{banner.text}</RecordBanner>
+        </div>
+      )}
 
       {configOpen && (
         <LiveConfigPanel
@@ -169,7 +230,21 @@ export default function LiveScreenPage() {
           onAssign={grid.assign}
           onReset={grid.reset}
           onClose={() => setConfigOpen(false)}
+          raceBox={raceBox}
         />
+      )}
+
+      {pickerOpen && (
+        <CircuitPicker
+          tracks={raceBox.tracks}
+          activeTrackId={raceBox.track ? raceBox.track.id : null}
+          onConfirm={startRecording}
+          onClose={() => setPickerOpen(false)}
+        />
+      )}
+
+      {stopOpen && (
+        <StopDialog busy={false} onCancel={() => setStopOpen(false)} onConfirm={confirmStop} />
       )}
     </div>
   );

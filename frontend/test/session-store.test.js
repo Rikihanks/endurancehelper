@@ -51,6 +51,24 @@ test('reading a session with an undefined id rejects instead of hanging', async 
   await assert.rejects(() => SessionStore.get(undefined));
 });
 
+test('live sessions keep their header, gaps and screen snapshots', async () => {
+  const records = [record(0), record(1)];
+  const header = { circuitName: 'Karting', kart: '136', preset: 'full' };
+  const gaps = [{ at: 1000, reason: 'racebox' }];
+  const screenSnapshots = [{ at: 1000, lap: 1, model: { position: 5 } }];
+  const id = await SessionStore.save({
+    meta: { name: 'En vivo', header, gaps, recordCount: records.length },
+    records,
+    screenSnapshots,
+  });
+  const full = await SessionStore.get(id);
+  assert.deepEqual(full.meta.header, header);
+  assert.deepEqual(full.meta.gaps, gaps);
+  assert.equal(full.screenSnapshots.length, 1);
+  assert.equal(full.screenSnapshots[0].model.position, 5);
+  await SessionStore.remove(id);
+});
+
 test('TrackStore keeps ids in the list (the editor relies on them)', async () => {
   const id = await TrackStore.save({
     name: 'Circuito de prueba',

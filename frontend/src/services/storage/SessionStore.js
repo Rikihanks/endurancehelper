@@ -82,10 +82,13 @@ export const SessionStore = {
         maxG: session.meta?.maxG ?? null,
         lapCount: session.meta?.lapCount ?? null,
         bestLapS: session.meta?.bestLapS ?? null,
+        header: session.meta?.header ?? null,
+        gaps: session.meta?.gaps ?? null,
         createdAt: Date.now(),
       },
       records: session.records,
     };
+    if (Array.isArray(session.screenSnapshots)) record.screenSnapshots = session.screenSnapshots;
     await runTx('readwrite', (store) => store.put(record));
     return record.id;
   },
