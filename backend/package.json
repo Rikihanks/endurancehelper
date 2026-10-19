@@ -12,6 +12,7 @@
     "db:migrate": "node src/db/migrate.js",
     "db:reset": "node scripts/reset-db.mjs",
     "promote:admin": "node scripts/promote-admin.mjs",
+    "apex:capture": "node scripts/apex-capture.mjs",
     "migrate:legacy": "node scripts/migrate-legacy-data.mjs",
     "seed:license": "node scripts/seed-license.mjs"
   },

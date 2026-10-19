@@ -73,3 +73,9 @@ Pendiente: entregar propuesta escrita (identidad de móvil, presencia, asignaci�
 - Huecos: si la RaceBox se desconecta o la app pasa a segundo plano durante la grabación, se avisa en pantalla y se marca el hueco en los datos (no se aparenta continuidad).
 - Salida de la pantalla durante la grabación: aviso del navegador (`beforeunload`). No hay más navegación in-app desde esta pantalla.
 - Cierre automático al pasar a `STINT_FINISHED`: pendiente de la Fase 7.
+
+## 7. Pendientes vivos y documentos asociados
+
+- **T.Track/Pit (bloquea Fase 6 y `stint_time`)**: procedimiento listo en `docs/live-screen-apex-capture.md`; script `backend/scripts/apex-capture.mjs` (`npm run apex:capture`). Cuando haya una carrera en directo, lanzarlo y mandar el `apex-otr-*.log`.
+- **Fase 7 / 7b (bloqueada por datos que no existen)**: propuesta escrita en `docs/live-screen-fase7b-propuesta.md`. No se implementa hasta aprobación y hasta disponer de ids de piloto, historial e identidad de dispositivo.
+- **Reconciliación de vueltas RaceBox↔Apex** (sección 5, punto 4): validar con una carrera real (RaceBox + InLap a la vez). Si procede, añadir offset explícito.
