@@ -114,9 +114,19 @@ export const PRESETS = {
       { content: 'stint_time', c: 6, r: 0, w: 6, h: 9 },
     ],
   },
+  racebox: {
+    id: 'racebox',
+    name: 'RaceBox',
+    cells: [
+      { content: 'current_lap_delta', c: 0, r: 0, w: 6, h: 6 },
+      { content: 'last_lap', c: 0, r: 6, w: 6, h: 3 },
+      { content: 'best_lap', c: 6, r: 0, w: 6, h: 3 },
+      { content: 'sectors', c: 6, r: 3, w: 6, h: 6 },
+    ],
+  },
 };
 
-export const PRESET_ORDER = ['full', 'balanced', 'essential', 'focus'];
+export const PRESET_ORDER = ['full', 'balanced', 'essential', 'focus', 'racebox'];
 
 export function getPreset(id) {
   return PRESETS[id] || PRESETS.full;

@@ -46,5 +46,13 @@ test('preset cell counts match the design', () => {
   assert.equal(PRESETS.balanced.cells.length, 6);
   assert.equal(PRESETS.essential.cells.length, 4);
   assert.equal(PRESETS.focus.cells.length, 2);
-  assert.deepEqual(PRESET_ORDER, ['full', 'balanced', 'essential', 'focus']);
+  assert.equal(PRESETS.racebox.cells.length, 4);
+  assert.deepEqual(PRESET_ORDER, ['full', 'balanced', 'essential', 'focus', 'racebox']);
+});
+
+test('the RaceBox preset only uses RaceBox-driven contents', () => {
+  const allowed = new Set(['current_lap_delta', 'sectors', 'best_lap', 'last_lap']);
+  for (const cell of PRESETS.racebox.cells) {
+    assert.ok(allowed.has(cell.content), `unexpected content ${cell.content}`);
+  }
 });
