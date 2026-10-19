@@ -3,6 +3,7 @@ import LiveGrid from './LiveGrid.jsx';
 import LiveControlBar from './LiveControlBar.jsx';
 import { PRESETS, PRESET_ORDER, getPreset } from './liveConfig.js';
 import { MOCK_MODEL, EMPTY_MODEL } from './liveMock.js';
+import { useActiveSessionId, useLiveScreenModel } from './useLiveScreenModel.js';
 import {
   keepScreenAwake,
   releaseScreenAwake,
@@ -35,7 +36,11 @@ export default function LiveScreenPage() {
   const [orientationLocked, setOrientationLocked] = useState(false);
   const [recording, setRecording] = useState(false);
 
-  const model = IS_DEV ? MOCK_MODEL : EMPTY_MODEL;
+  const sessionId = useActiveSessionId();
+  const liveModel = useLiveScreenModel(sessionId);
+  const hasReal = !!(liveModel && liveModel.hasData);
+  const model = hasReal ? liveModel : IS_DEV ? MOCK_MODEL : EMPTY_MODEL;
+  const usingMock = IS_DEV && !hasReal;
   const preset = useMemo(() => getPreset(presetId), [presetId]);
 
   useEffect(() => {
@@ -61,7 +66,9 @@ export default function LiveScreenPage() {
     <div className="live-page" data-orientation={orientation}>
       {IS_DEV && (
         <div className="live-devtools">
-          <span className="live-mock-badge">MOCK · DEV</span>
+          <span className={`live-mock-badge ${usingMock ? '' : sessionId ? 'is-live' : 'is-offline'}`}>
+            {usingMock ? 'MOCK · DEV' : sessionId ? 'INLAP · EN DIRECTO' : 'INLAP · SIN SESIÓN'}
+          </span>
           <label className="live-dev-select">
             <span>Grid</span>
             <select value={presetId} onChange={(event) => setPresetId(event.target.value)}>

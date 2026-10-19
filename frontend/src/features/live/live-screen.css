@@ -37,6 +37,9 @@
   letter-spacing: 0.08em;
 }
 
+.live-mock-badge.is-live { background: #00B800; }
+.live-mock-badge.is-offline { background: #55595f; }
+
 .live-dev-select {
   display: flex;
   align-items: center;
@@ -116,6 +119,7 @@
 .lc-tone-black { --cell-bg: #000000; }
 .lc-tone-purple { --cell-bg: #5E00A0; }
 .lc-tone-muted { --cell-bg: #23262c; color: #8b909b; }
+.lc-missing { color: #c3c6cc; }
 
 .lc-fit {
   display: flex;
@@ -153,7 +157,7 @@
   left: 0;
   z-index: 1;
   font-family: var(--font-mono, "IBM Plex Mono", ui-monospace, monospace);
-  font-size: clamp(12px, min(9cqw, 16cqh), 46px);
+  font-size: clamp(14px, min(11cqw, 20cqh), 56px);
   font-weight: 700;
   font-variant-numeric: tabular-nums;
   line-height: 1;

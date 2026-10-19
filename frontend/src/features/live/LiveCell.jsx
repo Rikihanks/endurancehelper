@@ -31,23 +31,29 @@ export default function LiveCell({ content, model }) {
 
   let tone = '';
   let body = null;
+  let missing = false;
 
   switch (content) {
     case 'race_remaining':
+      missing = !Number.isFinite(model.raceRemainingMs);
       body = <FitText text={formatRaceRemaining(model.raceRemainingMs)} />;
       break;
     case 'position':
+      missing = !Number.isFinite(model.position) || model.position <= 0;
       body = <FitText text={formatPosition(model.position)} />;
       break;
     case 'target_time':
+      missing = !Number.isFinite(model.targetLapMs);
       body = <FitText text={formatLap(model.targetLapMs)} />;
       break;
     case 'stint_time':
       tone = `lc-tone-${model.stintTone || 'muted'}`;
+      missing = !Number.isFinite(model.stintElapsedMs);
       body = <FitText text={formatStint(model.stintElapsedMs)} />;
       break;
     case 'current_lap_delta':
       tone = `lc-tone-${model.deltaTone || 'muted'}`;
+      missing = !Number.isFinite(model.deltaSeconds);
       body = (
         <div className="lc-lap">
           <span className="lc-corner">{lapTag(model.currentLap)}</span>
@@ -56,9 +62,11 @@ export default function LiveCell({ content, model }) {
       );
       break;
     case 'rival_ahead':
+      missing = !model.rivalAhead;
       body = <RivalCell rival={model.rivalAhead} />;
       break;
     case 'rival_behind':
+      missing = !model.rivalBehind;
       body = <RivalCell rival={model.rivalBehind} />;
       break;
     case 'sectors': {
@@ -73,6 +81,7 @@ export default function LiveCell({ content, model }) {
       break;
     }
     case 'best_lap':
+      missing = !(model.bestLap && Number.isFinite(model.bestLap.timeMs));
       body = (
         <div className="lc-lap">
           <span className="lc-corner">{lapTag(model.bestLap && model.bestLap.lap)}</span>
@@ -81,6 +90,7 @@ export default function LiveCell({ content, model }) {
       );
       break;
     case 'last_lap':
+      missing = !(model.lastLap && Number.isFinite(model.lastLap.timeMs));
       body = (
         <div className="lc-lap">
           <span className="lc-corner">{lapTag(model.lastLap && model.lastLap.lap)}</span>
@@ -99,7 +109,7 @@ export default function LiveCell({ content, model }) {
   if (!tone) style['--cell-bg'] = meta.bg;
 
   return (
-    <div className={`lc-cell ${tone}`} style={style}>
+    <div className={`lc-cell ${tone} ${missing ? 'lc-missing' : ''}`} style={style}>
       <div className="lc-cell-inner">{body}</div>
     </div>
   );
