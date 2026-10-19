@@ -151,6 +151,34 @@ test('live model keeps zero remaining time and lap 1 before any completed lap', 
   assert.equal(model.bestLap.timeMs, null);
 });
 
+test('racebox-only model fills delta, sectors and laps without InLap', () => {
+  const model = buildLiveScreenModel({}, {
+    currentLap: 4,
+    laps: 3,
+    deltaSeconds: -0.4,
+    currentSectors: [10],
+    lastSectors: [11, 12, 13],
+    bestSectors: [10, 12, 13],
+    sectorCount: 3,
+    bestLapS: 20.5,
+    bestLapNumber: 2,
+    lastLapS: 20.8,
+    lastLapNumber: 3,
+  });
+  assert.equal(model.hasData, false);
+  assert.equal(model.currentLap, 4);
+  assert.equal(model.deltaSeconds, -0.4);
+  assert.equal(model.deltaTone, 'green');
+  assert.deepEqual(model.sectors, ['best', 'empty', 'empty']);
+  assert.equal(model.bestLap.source, 'racebox');
+  assert.equal(model.bestLap.lap, 2);
+  assert.equal(model.bestLap.timeMs, 20500);
+  assert.equal(model.lastLap.source, 'racebox');
+  assert.equal(model.lastLap.lap, 3);
+  assert.equal(model.lastLap.timeMs, 20800);
+  assert.equal(model.position, null);
+});
+
 test('live model returns null without a payload', () => {
   assert.equal(buildLiveScreenModel(null), null);
   assert.equal(buildLiveScreenModel(undefined), null);

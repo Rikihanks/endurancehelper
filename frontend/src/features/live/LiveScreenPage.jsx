@@ -3,6 +3,7 @@ import LiveGrid from './LiveGrid.jsx';
 import LiveControlBar from './LiveControlBar.jsx';
 import { PRESETS, PRESET_ORDER, getPreset } from './liveConfig.js';
 import { MOCK_MODEL, EMPTY_MODEL } from './liveMock.js';
+import { buildLiveScreenModel } from './liveModel.js';
 import { useActiveSessionId, useLiveScreenModel } from './useLiveScreenModel.js';
 import { useRaceBoxLive } from './useRaceBoxLive.js';
 import {
@@ -58,8 +59,14 @@ function RaceBoxDevConnect({ live }) {
       {connected && (
         <button type="button" onClick={live.disconnect}>Desconectar</button>
       )}
-      {live.track && <span>· {live.track.name}</span>}
-      {live.context && <span>· V{live.context.currentLap} ({live.context.laps})</span>}
+      {live.track ? <span>· {live.track.name}</span> : <span>· sin circuito</span>}
+      {live.context && (
+        <span>
+          · V{live.context.currentLap} · {live.context.laps} v
+          {live.context.deltaSeconds != null ? ` · Δ${live.context.deltaSeconds.toFixed(2)}` : ''}
+          {live.context.sectorCount ? ` · ${live.context.sectorCount} sec` : ''}
+        </span>
+      )}
     </div>
   );
 }
@@ -72,10 +79,16 @@ export default function LiveScreenPage() {
 
   const sessionId = useActiveSessionId();
   const raceBox = useRaceBoxLive();
-  const liveModel = useLiveScreenModel(sessionId, raceBox.context);
-  const hasReal = !!(liveModel && liveModel.hasData);
-  const model = hasReal ? liveModel : IS_DEV ? MOCK_MODEL : EMPTY_MODEL;
-  const usingMock = IS_DEV && !hasReal;
+  const inLapModel = useLiveScreenModel(sessionId, raceBox.context);
+  const raceBoxModel = useMemo(() => buildLiveScreenModel({}, raceBox.context), [raceBox.context]);
+
+  const hasInLap = !!(inLapModel && inLapModel.hasData);
+  const hasRaceBox = !!raceBox.context && (raceBox.context.started || raceBox.context.laps > 0);
+  const source = hasInLap ? 'inlap' : hasRaceBox ? 'racebox' : IS_DEV ? 'mock' : 'none';
+  const model = source === 'inlap' ? inLapModel
+    : source === 'racebox' ? raceBoxModel
+    : source === 'mock' ? MOCK_MODEL
+    : EMPTY_MODEL;
   const preset = useMemo(() => getPreset(presetId), [presetId]);
 
   useEffect(() => {
@@ -101,8 +114,11 @@ export default function LiveScreenPage() {
     <div className="live-page" data-orientation={orientation}>
       {IS_DEV && (
         <div className="live-devtools">
-          <span className={`live-mock-badge ${usingMock ? '' : sessionId ? 'is-live' : 'is-offline'}`}>
-            {usingMock ? 'MOCK · DEV' : sessionId ? 'INLAP · EN DIRECTO' : 'INLAP · SIN SESIÓN'}
+          <span className={`live-mock-badge ${source === 'mock' ? '' : source === 'none' ? 'is-offline' : 'is-live'}`}>
+            {source === 'mock' ? 'MOCK · DEV'
+              : source === 'inlap' ? 'INLAP · EN DIRECTO'
+              : source === 'racebox' ? 'RACEBOX · SIN INLAP'
+              : 'SIN SESIÓN'}
           </span>
           <label className="live-dev-select">
             <span>Grid</span>
