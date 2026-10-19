@@ -1,7 +1,10 @@
 import { useEffect, useMemo, useState } from 'react';
 import LiveGrid from './LiveGrid.jsx';
 import LiveControlBar from './LiveControlBar.jsx';
+import LiveConfigPanel from './LiveConfigPanel.jsx';
 import { PRESETS, PRESET_ORDER, getPreset } from './liveConfig.js';
+import { getCells, getOverrides } from './liveGridStore.js';
+import { useLiveGridConfig } from './useLiveGridConfig.js';
 import { MOCK_MODEL, EMPTY_MODEL } from './liveMock.js';
 import { buildLiveScreenModel, selectModel, selectSource } from './liveModel.js';
 import { useActiveSessionId, useLiveScreenModel } from './useLiveScreenModel.js';
@@ -81,6 +84,7 @@ export default function LiveScreenPage() {
   const [presetId, setPresetId] = useState('full');
   const [orientationLocked, setOrientationLocked] = useState(false);
   const [recording, setRecording] = useState(false);
+  const [configOpen, setConfigOpen] = useState(false);
 
   const sessionId = useActiveSessionId();
   const raceBox = useRaceBoxLive();
@@ -97,6 +101,11 @@ export default function LiveScreenPage() {
     emptyModel: EMPTY_MODEL,
   });
   const preset = useMemo(() => getPreset(presetId), [presetId]);
+  const grid = useLiveGridConfig();
+  const cells = useMemo(
+    () => getCells(preset, getOverrides(grid.config, presetId)),
+    [preset, grid.config, presetId]
+  );
 
   useEffect(() => {
     keepScreenAwake();
@@ -141,7 +150,7 @@ export default function LiveScreenPage() {
       )}
 
       <main className="live-stage">
-        <LiveGrid preset={preset} model={model} orientation={orientation} />
+        <LiveGrid cells={cells} model={model} orientation={orientation} />
       </main>
 
       <LiveControlBar
@@ -149,8 +158,19 @@ export default function LiveScreenPage() {
         onToggleOrientation={toggleOrientation}
         recording={!!toggleRecording && recording}
         onToggleRecording={toggleRecording}
-        onOpenConfig={null}
+        onOpenConfig={() => setConfigOpen(true)}
       />
+
+      {configOpen && (
+        <LiveConfigPanel
+          presetId={presetId}
+          onSelectPreset={setPresetId}
+          config={grid.config}
+          onAssign={grid.assign}
+          onReset={grid.reset}
+          onClose={() => setConfigOpen(false)}
+        />
+      )}
     </div>
   );
 }

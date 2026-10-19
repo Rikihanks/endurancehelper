@@ -5,7 +5,7 @@ function GridBlock({ cells, model, columns, shift = 0 }) {
     <div className="live-grid" style={{ '--live-cols': columns }}>
       {cells.map((cell) => (
         <div
-          key={cell.content}
+          key={cell.slot ?? cell.content}
           className="lc-slot"
           style={{
             gridColumn: `${cell.c - shift + 1} / span ${cell.w}`,
@@ -19,10 +19,10 @@ function GridBlock({ cells, model, columns, shift = 0 }) {
   );
 }
 
-export default function LiveGrid({ preset, model, orientation }) {
+export default function LiveGrid({ cells, model, orientation }) {
   if (orientation === 'portrait') {
-    const left = preset.cells.filter((cell) => cell.c < 6);
-    const right = preset.cells.filter((cell) => cell.c >= 6);
+    const left = cells.filter((cell) => cell.c < 6);
+    const right = cells.filter((cell) => cell.c >= 6);
     return (
       <div className="live-stack">
         {left.length > 0 && <GridBlock cells={left} model={model} columns={6} />}
@@ -30,5 +30,5 @@ export default function LiveGrid({ preset, model, orientation }) {
       </div>
     );
   }
-  return <GridBlock cells={preset.cells} model={model} columns={12} />;
+  return <GridBlock cells={cells} model={model} columns={12} />;
 }
