@@ -59,6 +59,9 @@ function RaceBoxDevConnect({ live }) {
       {connected && (
         <button type="button" onClick={live.disconnect}>Desconectar</button>
       )}
+      <button type="button" onClick={live.simulating ? live.stopSimulate : live.simulate}>
+        {live.simulating ? 'Parar sim' : 'Simular'}
+      </button>
       {live.track ? <span>· {live.track.name}</span> : <span>· sin circuito</span>}
       {live.context && (
         <span>
@@ -84,7 +87,11 @@ export default function LiveScreenPage() {
 
   const hasInLap = !!(inLapModel && inLapModel.hasData);
   const hasRaceBox = !!raceBox.context && (raceBox.context.started || raceBox.context.laps > 0);
-  const source = hasInLap ? 'inlap' : hasRaceBox ? 'racebox' : IS_DEV ? 'mock' : 'none';
+  const source = hasInLap ? 'inlap'
+    : raceBox.simulating ? 'sim'
+    : hasRaceBox ? 'racebox'
+    : IS_DEV ? 'mock'
+    : 'none';
   const model = source === 'inlap' ? inLapModel
     : source === 'racebox' ? raceBoxModel
     : source === 'mock' ? MOCK_MODEL
@@ -114,8 +121,9 @@ export default function LiveScreenPage() {
     <div className="live-page" data-orientation={orientation}>
       {IS_DEV && (
         <div className="live-devtools">
-          <span className={`live-mock-badge ${source === 'mock' ? '' : source === 'none' ? 'is-offline' : 'is-live'}`}>
+          <span className={`live-mock-badge ${source === 'mock' || source === 'sim' ? '' : source === 'none' ? 'is-offline' : 'is-live'}`}>
             {source === 'mock' ? 'MOCK · DEV'
+              : source === 'sim' ? 'SIM · DEV'
               : source === 'inlap' ? 'INLAP · EN DIRECTO'
               : source === 'racebox' ? 'RACEBOX · SIN INLAP'
               : 'SIN SESIÓN'}

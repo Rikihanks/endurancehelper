@@ -10,7 +10,10 @@ export function useRaceBoxLive() {
   const [track, setTrack] = useState(null);
   const [snapshot, setSnapshot] = useState(() => adapter.getSnapshot());
   const [context, setContext] = useState(null);
+  const [simulating, setSimulating] = useState(false);
   const bridgeRef = useRef(null);
+  const simRef = useRef(false);
+  const simTimerRef = useRef(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -35,12 +38,14 @@ export function useRaceBoxLive() {
   }, []);
 
   useEffect(() => {
+    if (simRef.current) return;
     bridgeRef.current = new RaceBoxLiveBridge(track);
   }, [track]);
 
   useEffect(() => {
     adapter.initialize();
     const unsubscribe = adapter.addRecordListener((record) => {
+      if (simRef.current) return;
       if (bridgeRef.current) bridgeRef.current.push(record);
     });
     const timer = setInterval(() => {
@@ -54,6 +59,10 @@ export function useRaceBoxLive() {
     };
   }, [adapter]);
 
+  useEffect(() => () => {
+    if (simTimerRef.current) clearInterval(simTimerRef.current);
+  }, []);
+
   const scan = useCallback(() => adapter.startScan(), [adapter]);
   const stopScan = useCallback(() => adapter.stopScan(), [adapter]);
   const connect = useCallback(
@@ -65,5 +74,52 @@ export function useRaceBoxLive() {
   );
   const disconnect = useCallback(() => adapter.disconnect(), [adapter]);
 
-  return { adapter, snapshot, context, track, scan, stopScan, connect, disconnect };
+  const stopSimulate = useCallback(() => {
+    if (simTimerRef.current) {
+      clearInterval(simTimerRef.current);
+      simTimerRef.current = null;
+    }
+    simRef.current = false;
+    setSimulating(false);
+    bridgeRef.current = new RaceBoxLiveBridge(track);
+  }, [track]);
+
+  const simulate = useCallback(async () => {
+    if (!import.meta.env.DEV || simRef.current) return;
+    const { buildSimulation } = await import('./demoTrack.js');
+    const simulation = buildSimulation({ track, laps: 3, hz: 25 });
+    if (!simulation) return;
+    const { track: simTrack, records } = simulation;
+
+    bridgeRef.current = new RaceBoxLiveBridge(simTrack);
+    simRef.current = true;
+    setSimulating(true);
+
+    let index = 0;
+    simTimerRef.current = setInterval(() => {
+      const bridge = bridgeRef.current;
+      for (let step = 0; step < 4 && index < records.length && bridge; step += 1) {
+        bridge.push(records[index]);
+        index += 1;
+      }
+      if (index >= records.length && simTimerRef.current) {
+        clearInterval(simTimerRef.current);
+        simTimerRef.current = null;
+      }
+    }, 40);
+  }, [track]);
+
+  return {
+    adapter,
+    snapshot,
+    context,
+    track,
+    scan,
+    stopScan,
+    connect,
+    disconnect,
+    simulate,
+    stopSimulate,
+    simulating,
+  };
 }
