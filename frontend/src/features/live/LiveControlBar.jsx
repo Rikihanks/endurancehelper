@@ -1,4 +1,4 @@
-import { IconLock, IconRotate, IconSettings } from '@tabler/icons-react';
+import { IconLock, IconRotate2, IconSettings } from '@tabler/icons-react';
 
 export default function LiveControlBar({
   orientationLocked,
@@ -16,7 +16,7 @@ export default function LiveControlBar({
         aria-label={orientationLocked ? 'Desbloquear orientación' : 'Bloquear orientación'}
         title={orientationLocked ? 'Orientación bloqueada' : 'Orientación libre'}
       >
-        {orientationLocked ? <IconLock size={26} stroke={2.2} /> : <IconRotate size={26} stroke={2.2} />}
+        {orientationLocked ? <IconLock size={26} stroke={2.2} /> : <IconRotate2 size={28} stroke={2.2} />}
       </button>
 
       <button

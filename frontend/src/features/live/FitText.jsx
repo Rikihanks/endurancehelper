@@ -1,6 +1,6 @@
 import { useCallback, useLayoutEffect, useRef } from 'react';
 
-export default function FitText({ text, className = '', minSize = 8, maxSize = 400 }) {
+export default function FitText({ text, className = '', minSize = 8, maxSize = 1000 }) {
   const boxRef = useRef(null);
   const spanRef = useRef(null);
 
@@ -26,10 +26,21 @@ export default function FitText({ text, className = '', minSize = 8, maxSize = 4
   useLayoutEffect(() => {
     fit();
     const box = boxRef.current;
-    if (!box || typeof ResizeObserver === 'undefined') return undefined;
-    const observer = new ResizeObserver(fit);
-    observer.observe(box);
-    return () => observer.disconnect();
+    const observer = box && typeof ResizeObserver !== 'undefined' ? new ResizeObserver(fit) : null;
+    if (observer && box) observer.observe(box);
+
+    const fonts = typeof document !== 'undefined' ? document.fonts : null;
+    let cancelled = false;
+    if (fonts) {
+      fonts.ready.then(() => { if (!cancelled) fit(); }).catch(() => {});
+      if (fonts.addEventListener) fonts.addEventListener('loadingdone', fit);
+    }
+
+    return () => {
+      cancelled = true;
+      if (observer) observer.disconnect();
+      if (fonts && fonts.removeEventListener) fonts.removeEventListener('loadingdone', fit);
+    };
   }, [fit, text]);
 
   return (

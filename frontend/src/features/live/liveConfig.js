@@ -3,7 +3,7 @@ export const CELL_CONTENTS = {
     id: 'race_remaining',
     label: 'Tiempo restante',
     bg: '#F5A023',
-    fg: '#101010',
+    fg: '#FFFFFF',
   },
   position: {
     id: 'position',
@@ -15,7 +15,7 @@ export const CELL_CONTENTS = {
     id: 'target_time',
     label: 'Tiempo objetivo',
     bg: '#FF8A1A',
-    fg: '#101010',
+    fg: '#FFFFFF',
   },
   stint_time: {
     id: 'stint_time',
